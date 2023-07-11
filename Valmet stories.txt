@@ -1,0 +1,1778 @@
+Keshari654321@2023
+tisai - 8369114721 190619you
+2220154808
+MC22102561
+FP 1201
+
+https://www.youtube.com/watch?v=uS3pnJz9Rtg
+
+https://developer.salesforce.com/forums/?id=906F0000000AUInIAO
+
+trigger onOpportunityTrigger on Opportunity (before insert) {
+    if(trigger.isUpdate){
+        updateingCreatedBy.updteIOpp(triggger.oldMap);
+    }
+}
+
+public class updateingCreatedBy {
+
+    public static void updteIOpp(Map<Id,Opportunity> mapOfOpp){
+        List<String> oppIds=[Select Id,name from Opportunity where Id=: mapOfOpp.get(Id)];
+        List<Opportunity> listOpp=new List<Opportunity>();
+        for(Opportunity ops:oppIds){
+            ops.changedby=ops.createdby;
+            listOpp.add(ops);
+            
+        }
+        update listOpp;
+        
+        
+    }
+}
+
+fp 1072 - 
+
+All the profile share the page layout 
+
+Only admin are able to see it 
+which profile should have the access?
+Should it be view or edit access?
+
+
+object 
+filed api
+profile
+
+Error frequently received in production environment where Sales Lead is trying to be created as opportunities but failed due to missing required field
+
+Flow is failing as old service lead records with type ‘Sales Lead’ are getting triggered, in which a required field is missing.
+
+
+
+
+
+24 -- 
+
+WO-00092932
+
+1475
+
+1398  similar
+
+1463
+FP-1390
+FP-1391
+
+
+1532
+ServiceMax Warehouse Worker TMA--Product Stock Layout TMA
+
+1391
+
+https://capgemini-my.sharepoint.com/:v:/p/ravishankar_narasimman/EYirlmzdr8tDrD9E6LCnmGgBmE2m50y56gxXOETVdAYP5Q
+
+https://capgemini-my.sharepoint.com/:v:/p/ashutosh_keshari-singh/EdHVXpkCtANEr13GEx2huH0BhW37mFUe7AS7jRti8FccNQ
+
+https://capgemini-my.sharepoint.com/:v:/p/ravishankar_narasimman/EfonXZqq2SdNn5kZv1xVEwoB5GEDcytjeS5Rbh_1KKrzqg
+
+https://capgemini-my.sharepoint.com/:v:/p/ashutosh_keshari-singh/EbThArDHrDlJt3A1xNYDMqcBBEp_De2KZRwpkBaBiVW4mA
+
+ROUND((SVMXC__End_Date_and_Time__c - SVMXC__Start_Date_and_Time__c)*24,2)
+
+FS_Record_Labor_Consumption_LeadTechnician
+
+event -- 
+
+duration in hours -- end date time
+in the test classes less than 24 
+
+
+---backup-----------------------------------------------------------------------------------------
+
+
+/**********************************************************************
+ Name: TMA_ServiceOrderTriggerHandler
+ Other classes used:
+ Tested in class: TMA_ProductTriggerHandlerTest
+=======================================================================
+Description:
+      all SVMXC__Service_Order__c trigger logic
+=======================================================================
+History
+-------
+VERSION         AUTHOR                  DATE            DETAIL
+1.0             Peter Sivak             10.11.2020      Initial development
+1.1				Rashmi Kumari			24.03.2022		FP-1098 - Added beforeInsert(),beforeUpdate(),populateClosedOnForInsert(),populateClosedOnForUpdate() function to update the field "SVMXC__Closed_On__c"
+***********************************************************************/
+public without sharing class TMA_ServiceOrderTriggerHandler {
+    //@Rashmi - FP-1098
+    public static void beforeInsert(List<SVMXC__Service_Order__c> newRecordList){
+        populateClosedOnForInsert(newRecordList);
+    }
+    
+    //@Rashmi - FP-1098
+    public static void beforeUpdate(List<SVMXC__Service_Order__c> newRecordList,Map<Id,SVMXC__Service_Order__c> oldRecordMap){
+        populateClosedOnForUpdate(newRecordList,oldRecordMap);
+    }
+    
+    public static void afterInsert( List<SVMXC__Service_Order__c> newRecordList ) {
+        populateInspectionOrderLinkInSerials( newRecordList );
+        //@Rashmi - FP-1098
+        populateNextInspectionDate(newRecordList);
+        
+    }
+
+    public static void afterUpdate( List<SVMXC__Service_Order__c> newRecordList, Map<Id, SVMXC__Service_Order__c> oldProductMap ) {
+        populateNextInspectionDateInSerials( newRecordList, oldProductMap );
+    }
+
+    /** *****************************************************************
+     *                    METHODS TO SUPPORT LOGIC
+     * ******************************************************************
+     */
+
+    //@Rashmi - FP-1098
+    public static void populateClosedOnForInsert(List<SVMXC__Service_Order__c> newRecordList){
+        Map<Id, String> rtMap=serviceOrderRTMap();
+    	for(SVMXC__Service_Order__c servOrder:newRecordList){
+            String rtDeveloperName=rtMap.get(servOrder.recordTypeId);
+        	if(rtDeveloperName==TMA_Constants.SERVICE_ORDER_RECORD_TYPE_PERIODIC_MAINT && servOrder.SVMXC__Order_Status__c=='Closed'){
+            	servOrder.SVMXC__Closed_On__c=DateTime.now();
+            }
+        }
+    }
+    
+    //@Rashmi - FP-1098 - to populate NextInspectionDate InSerials For Insert
+    public static void populateNextInspectionDate(List<SVMXC__Service_Order__c> newRecordList){
+        Map<Id,String> rtMap=serviceOrderRTMap();
+		Set<Id> scopeSerialIdSet=new Set<Id>();
+        for(SVMXC__Service_Order__c servOrder:newRecordList){
+            String rtDeveloperName=rtMap.get(servOrder.recordTypeId);
+            if(rtDeveloperName==TMA_Constants.SERVICE_ORDER_RECORD_TYPE_PERIODIC_MAINT && 
+                servOrder.Stocked_Serial__c!= null && servOrder.SVMXC__Order_Status__c=='Closed'){
+				scopeSerialIdSet.add(servOrder.Stocked_Serial__c);
+            }
+        }
+        if(scopeSerialIdSet.size()>0){
+            List<SVMXC__Product_Serial__c> updateSerialList=new List<SVMXC__Product_Serial__c>();
+			List<SVMXC__Product_Serial__c> serialList=[
+                SELECT Id,SVMXC__Product__c,SVMXC__Product__r.Schedule_weeks__c,Inspection_Service_Order__r.SVMXC__Closed_On__c
+                FROM SVMXC__Product_Serial__c
+                WHERE Id IN:scopeSerialIdSet
+            ];
+			for(SVMXC__Product_Serial__c prodSerial:serialList){
+                if(prodSerial.SVMXC__Product__r.Schedule_weeks__c!=null && prodSerial.Inspection_Service_Order__r.SVMXC__Closed_On__c!=null){
+                    Datetime dtClosed=prodSerial.Inspection_Service_Order__r.SVMXC__Closed_On__c;
+                    Date dateClosed=Date.newInstance(dtClosed.year(),dtClosed.month(),dtClosed.day());
+                    Integer noOfWeeksInt=Integer.valueOf(prodSerial.SVMXC__Product__r.Schedule_weeks__c);
+                	prodSerial.Inspection_Service_Order__c=null;
+                    prodSerial.Last_Inspection_Date__c=dateClosed;
+                    prodSerial.Next_Inspection_Due__c=dateClosed.addDays(7*noOfWeeksInt);
+					updateSerialList.add(prodSerial);
+                }
+            }
+			if(updateSerialList.size()>0){
+                update updateSerialList;
+            }
+        }
+    }
+    
+    //@Rashmi - FP-1098
+    public static void populateClosedOnForUpdate(List<SVMXC__Service_Order__c> newRecordList,Map<Id,SVMXC__Service_Order__c> oldRecordMap){
+        Map<Id, String> rtMap=serviceOrderRTMap();
+    	for(SVMXC__Service_Order__c servOrder:newRecordList){
+            String rtDeveloperName=rtMap.get(servOrder.recordTypeId);
+            SVMXC__Service_Order__c oldRecord=oldRecordMap.get(servOrder.id);
+            if(rtDeveloperName==TMA_Constants.SERVICE_ORDER_RECORD_TYPE_PERIODIC_MAINT && servOrder.SVMXC__Order_Status__c=='Closed' && oldRecord.SVMXC__Order_Status__c!=servOrder.SVMXC__Order_Status__c){
+                servOrder.SVMXC__Closed_On__c=DateTime.now();
+            }
+        }
+    }
+    
+    public static void populateInspectionOrderLinkInSerials( List<SVMXC__Service_Order__c> newRecordList ) {
+        Map<Id, String> rtMap = serviceOrderRTMap();
+
+        Set<Id> serialIdSet = new Set<Id>();
+        List<SVMXC__Service_Order__c> scopeList = new List<SVMXC__Service_Order__c>();
+
+        for( SVMXC__Service_Order__c servOrder :newRecordList ) {
+            String rtDeveloperName = rtMap.get( servOrder.recordTypeId );
+            if( rtDeveloperName == TMA_Constants.SERVICE_ORDER_RECORD_TYPE_PERIODIC_MAINT && servOrder.Stocked_Serial__c != null ) {
+                scopeList.add( servOrder );
+                serialIdSet.add( servOrder.Stocked_Serial__c );
+            }
+        }
+
+        if( scopeList.size() > 0 ) {
+            List<SVMXC__Product_Serial__c> serials2Update = new List<SVMXC__Product_Serial__c>();
+
+            for( SVMXC__Service_Order__c scopeOrder :scopeList ) {
+                SVMXC__Product_Serial__c prodSer = new SVMXC__Product_Serial__c(
+                    Id = scopeOrder.Stocked_Serial__c,
+                    Inspection_Service_Order__c = scopeOrder.Id
+                );
+                serials2Update.add( prodSer );
+            }
+
+            if( serials2Update.size() > 0 ) {
+                update serials2Update;
+            }
+        }
+
+    }
+
+    public static void populateNextInspectionDateInSerials( List<SVMXC__Service_Order__c> newRecordList, Map<Id, SVMXC__Service_Order__c> oldProductMap ) {
+        Map<Id, String> rtMap = serviceOrderRTMap();
+
+        Set<Id> scopeSerialIdSet = new Set<Id>();
+        
+        for( SVMXC__Service_Order__c servOrder :newRecordList ) {
+            String rtDeveloperName = rtMap.get( servOrder.recordTypeId );
+            if( rtDeveloperName == TMA_Constants.SERVICE_ORDER_RECORD_TYPE_PERIODIC_MAINT && 
+                servOrder.Stocked_Serial__c != null && servOrder.SVMXC__Order_Status__c == 'Closed' ) {
+
+                SVMXC__Service_Order__c oldRecord = oldProductMap.get( servOrder.id );
+
+                if( oldRecord.SVMXC__Order_Status__c != servOrder.SVMXC__Order_Status__c ) {
+                    scopeSerialIdSet.add( servOrder.Stocked_Serial__c );
+                }
+            }
+        }
+        if( scopeSerialIdSet.size() > 0 ) {
+            List<SVMXC__Product_Serial__c> updateSerialList = new List<SVMXC__Product_Serial__c>();
+
+            List<SVMXC__Product_Serial__c> serialList = [
+                SELECT Id, SVMXC__Product__c, SVMXC__Product__r.Schedule_weeks__c,
+                    Inspection_Service_Order__r.SVMXC__Closed_On__c
+                FROM SVMXC__Product_Serial__c
+                WHERE Id IN :scopeSerialIdSet
+            ];
+
+            for( SVMXC__Product_Serial__c prodSerial :serialList ) {
+                if( prodSerial.SVMXC__Product__r.Schedule_weeks__c != null && prodSerial.Inspection_Service_Order__r.SVMXC__Closed_On__c != null ) {
+                    Datetime dtClosed = prodSerial.Inspection_Service_Order__r.SVMXC__Closed_On__c;
+                    Date dateClosed = Date.newInstance( dtClosed.year(), dtClosed.month(), dtClosed.day() );
+                    Integer noOfWeeksInt = Integer.valueOf( prodSerial.SVMXC__Product__r.Schedule_weeks__c );
+                
+                    prodSerial.Inspection_Service_Order__c = null;
+                    prodSerial.Last_Inspection_Date__c = dateClosed;
+                    prodSerial.Next_Inspection_Due__c = dateClosed.addDays( 7 * noOfWeeksInt );
+
+                    updateSerialList.add( prodSerial );
+                }
+            }
+
+            if( updateSerialList.size() > 0 ) {
+                update updateSerialList;
+            }
+        }
+    }
+
+    public static Map<Id, String> serviceOrderRTMap() {
+        Map<Id, String> retValueMap = new Map<Id, String>();
+
+        List<Schema.RecordTypeInfo> sOrderRTInfoList = SVMXC__Service_Order__c.SObjectType.getDescribe().getRecordTypeInfos();
+
+        for( Schema.RecordTypeInfo rtInfo :sOrderRTInfoList ) {
+            retValueMap.put( rtInfo.getRecordTypeId(), rtInfo.getDeveloperName() );
+        }
+
+        return retValueMap;
+    }
+}
+
+---------------------------------------------------------------------------------------------------------------
+
+trigger and condition
+
+triggerlinehandler
+
+collect data and send 
+
+bulk data send 
+collect all the data in one jason 
+
+send one update 
+
+service order line 12345 --- hold a value zero when i made an update the date should get self incremented by zero --- based on conditional basic
+
+record id and new field should be send to jason  
+
+Date dateClosed=Date.newInstance(dtClosed.year(),dtClosed.month(),dtClosed.day());
+
+- Update Order status based on ERP status
+
+
+(technician and equipment
+
+type is hse the want to populate it in differnet field )
+
+1492--
+
+getSrlMstrList
+
+getPrdStkList
+
+getPartsOrderList
+
+createNewLineItem - 
+
+createSerNewLineItem
+
+updateSrLineItem-
+
+updateNonSrLineItem-
+
+SerNewLineItem - 
+
+insertNonSrManually-\
+
+
+
+SM_TMA_pickingListOrder.createNewLineItem(partsOrderList[0].id,productList[0].ProductCode,1,2);
+        SM_TMA_pickingListOrder.SerNewLineItem(partsOrderList[0].id,productList[0].ProductCode,1,2,'abc');
+        SM_TMA_pickingListOrder.insertNonSrManually(1,2,,partsOrderList[0].id);
+        SM_TMA_pickingListOrder.updateSrLineItem(partsOrderLineList[0].id,'abd',2);
+        SM_TMA_pickingListOrder.updateNonSrLineItem(partsOrderLineList[0].id,'abe',1);
+     
+        SM_TMA_pickingListOrder.getPartsOrderList();
+        SM_TMA_pickingListOrder.getPrdStkList();
+        SM_TMA_pickingListOrder.getSrlMstrList();
+
+
+put(key, value)
+Associates the specified value with the specified key in the map.
+
+get(key)
+Returns the value to which the specified key is mapped, or null if the map contains no value for this key.
+
+containsKey(key)
+Returns true if the map contains a mapping for the specified key.
+
+removeEnd(substring)
+Removes the specified substring only if it occurs at the end of the String.
+
+
+
+
+System.DmlException: Insert failed. First exception on row 0; first error: CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY, SM_TechnicianCertificate_Trigger: execution of AfterInsert
+
+caused by: System.NullPointerException: Attempt to de-reference a null object
+
+Class.SM_TechnicianRecordUpdate.updateTechnicianCertificate: line 169, column 1
+Class.SM_TechnicianRecordUpdate.updateTechnicianCertificateName: line 132, column 1
+Trigger.SM_TechnicianCertificate_Trigger: line 15, column 1: []
+
+
+
+System.LimitException: SVMXC:Too many SOQL queries: 101
+
+
+
+System.DmlException: Insert failed. First exception on row 0; first error: CANNOT_INSERT_UPDATE_ACTIVATE_ENTITY, SM_TechnicianCertificate_Trigger: execution of AfterInsert
+
+caused by: System.NullPointerException: Attempt to de-reference a null object
+
+Class.SM_TechnicianRecordUpdate.updateTechnicianCertificate: line 169, column 1
+Class.SM_TechnicianRecordUpdate.updateTechnicianCertificateName: line 132, column 1
+Trigger.SM_TechnicianCertificate_Trigger: line 15, column 1: []
+
+
+https://valmet-my.sharepoint.com/:v:/g/personal/srikanth_nanneboina_valmetpartners_com/Eczq1D35gZNDg8KxgxY1QXkB7QWhvuA7Do1LQ4ZoDAwe3Q
+
+
+SVMXC__RMA_Shipment_Line__c
+SVMXC__Line_Status__c
+
+
+1647 --
+serial stock 
+
+Child SO MVP , Child SO MVP ReadOnly , Parent SO MVP
+
+..........................................................................................................
+SM_Restrict_Hours_Transfer_to_LN
+
+trigger TechnicianTimeReport on Time_Report__c (before insert) {
+    for (Time_Report__c tr : Trigger.new) {
+        if (tr.Technician__r.Restrict_Hours_Transfer_to_LN__c == true) {
+            tr.Send_Hours_to_LN__c = false;
+        }
+    }
+}
+..........................................................................................................
+​Class Name       : SM_ServiceOrderlineTriggerHandler
+Test Class Name  : SM_ServiceOrderlineTriggerHandler_UT
+Field: SM_Restricted_Country__c
+
+Permission Sets:-
+1. SVMX Lightning App Platform --- API Name- SVMX_SM_Lightning_App
+2. SVMX Lightning App Standard --- API Name- SVMX_SM_Lightning_Standard
+
+Profiles:
+1. Field Integration
+2. Admin
+3. ServiceMax Service manager--Planner
+4. ServiceMax Service manager(Platform)--Planner
+5. ServiceMax FSE--Technician --- API Name-
+6. ServiceMax Warehouse Worker TMA
+Flow: Populate Customer Address Data in SO
+..........................................................................................................
+
+// Create new field on SVMXC__Service_Group_Members__c object
+// Field Label: Restrict Hours Transfer to LN
+// Field Name: Restrict_Hours_Transfer_to_LN__c
+// Field Type: Checkbox
+
+// Apex code to prevent time reports from being submitted to LN when "Restrict Hours Transfer to LN" is true
+trigger TimeReportTrigger on SVMXC__Time_Log__c (before insert) {
+    Set<Id> technicianIds = new Set<Id>();
+    Map<Id, SVMXC__Service_Group_Members__c> serviceGroupMembers = new Map<Id, SVMXC__Service_Group_Members__c>();
+    
+    // Collect relevant data for processing
+    for (SVMXC__Time_Log__c tl : Trigger.new) {
+        if (tl.SVMXC__Technician__c != null) {
+            technicianIds.add(tl.SVMXC__Technician__c);
+        }
+    }
+    
+    for (SVMXC__Service_Group_Members__c sgm : [SELECT Id, Restrict_Hours_Transfer_to_LN__c FROM SVMXC__Service_Group_Members__c WHERE SVMXC__Technician__c IN :technicianIds]) {
+        serviceGroupMembers.put(sgm.SVMXC__Technician__c, sgm);
+    }
+    
+    // Prevent time reports from being submitted to LN
+    for (SVMXC__Time_Log__c tl : Trigger.new) {
+        SVMXC__Service_Group_Members__c sgm = serviceGroupMembers.get(tl.SVMXC__Technician__c);
+        if (sgm != null && sgm.Restrict_Hours_Transfer_to_LN__c == true) {
+            tl.SVMXC__Send_Hours_to_LN__c = false;
+        }
+    }
+}
+
+so it might be it not visible for that specifi
+
+New Field “Restrict Hours Transfer to LN” is included in Technician Object
+
+By Default the Value would be defaulted to “False” and for the needed technicians NA Team can update the Value to “True”
+
+If Restrict Hours Transfer to LN for Technician is set to “True” then Time Reports reported in ServiceMax Application will not be transferred to LN Easy Hours
+
+..........................................................................................................
+public class SM_ServiceOrderlineTriggerHandler {
+    public static void handleBeforeInsert(List<SM_Order_Line__c> newOrderLines) {
+        List<Technician> restrictedTechs = [SELECT Id, Name, Restrict_Hours_Transfer_to_LN__c FROM Technician WHERE Restrict_Hours_Transfer_to_LN__c = true];
+
+        Set<Id> restrictedTechIds = new Set<Id>();
+        for (Technician t : restrictedTechs) {
+            restrictedTechIds.add(t.Id);
+        }
+
+        for (SM_Order_Line__c orderLine : newOrderLines) {
+            if (restrictedTechIds.contains(orderLine.Technician__c)) {
+                // Hours transfer is restricted for this technician
+                // Time reports reported in ServiceMax Application will not be transferred to LN Easy Hours
+            } else {
+                // Hours transfer is not restricted for this technician
+                // Time reports reported in ServiceMax Application will be transferred to LN Easy Hours
+            }
+        }
+    }
+}
+..........................................................................................................
+
+ List<SVMXC__Service_Group_Members__c> restrictedTechs = [SELECT Id, Name, Restrict_Hours_Transfer_to_LN__c FROM Technician WHERE Restrict_Hours_Transfer_to_LN__c = true];
+
+if(restrictedTechs.Restrict_Hours_Transfer_to_LN__c == true) {
+    // Do not transfer time report to LN Easy Hours
+} else {
+    // Transfer time report to LN Easy Hours
+}
+
+is the apex code correct if the object is SVMXC__Service_Group_Members__c and the field  Restrict_Hours_Transfer_to_LN__c  is true?  
+If Restrict Hours Transfer to LN for Technician is set to “True” then Time Reports reported in ServiceMax Application will not be transferred to LN Easy Hours
+     List<SVMXC__Service_Group_Members__c> restrictedTechs = [SELECT Id, Name, Restrict_Hours_Transfer_to_LN__c FROM SVMXC__Service_Group_Members__c WHERE Restrict_Hours_Transfer_to_LN__c = true];
+
+if(SVMXC__Service_Group_Members__c.Restrict_Hours_Transfer_to_LN__c == true) {
+    // Do not transfer time report to LN Easy Hours
+} else {
+    // Transfer time report to LN Easy Hours
+}
+
+
+
+
+
+// Query for all Technician records with Restrict Hours Transfer to LN set to true
+List<SVMXC__Service_Group_Members__c> restrictedTechs = [SELECT Id, Name, Restrict_Hours_Transfer_to_LN__c FROM SVMXC__Service_Group_Members__c WHERE Restrict_Hours_Transfer_to_LN__c = true];
+
+// Loop through each restricted technician record and check if their Restrict Hours Transfer to LN value is true
+for (SVMXC__Service_Group_Members__c tech : restrictedTechs) {
+    if (tech.Restrict_Hours_Transfer_to_LN__c) {
+        // If the technician's Restrict Hours Transfer to LN value is true, do not transfer their time report to LN Easy Hours
+        // Your implementation of not transferring the time report to LN Easy Hours would go here
+    }
+    else {
+        // If the technician's Restrict Hours Transfer to LN value is false, transfer their time report to LN Easy Hours
+        // Your implementation of transferring the time report to LN Easy Hours would go here
+    }
+}
+
+..........................................................................................................
+
+
+List<SVMXC__Service_Group_Members__c> restrictedTechs = [SELECT Id, Name, Restrict_Hours_Transfer_to_LN__c FROM SVMXC__Service_Group_Members__c WHERE Restrict_Hours_Transfer_to_LN__c = true];
+
+
+    if (Restrict_Hours_Transfer_to_LN__c==true) {
+        
+       
+    }
+    else {
+     
+        
+}
+
+
+populate Customer Address Data in SO
+
+SM Restrict Hours Transfer to LN
+
+SM_EquipmentLayout
+ServiceMax Service Manager
+
+Field Integrations	Not Checked	Checked
+ServiceMax FSE	Not Checked	Checked
+ServiceMax Service Manager	Not Checked	Checked
+ServiceMax Service Manager (Platform)	Not Checked	Checked
+System Administrator	Not Checked	Checked
+
+AUT VPC piloting	
+Field Service	
+ServiceMax FSE	
+ServiceMax Service Manager	
+ServiceMax Service Manager (Platform)
+
+Edit Technician Layout	
+
+
+@isTest
+public class ServiceOrderLineRequestTest {
+
+    static testMethod void testServiceOrderLineRequest() {
+        
+        SVMXC__Service_Order__c so = new SVMXC__Service_Order__c();
+        insert so;
+        
+        SVMXC__Service_Order_Line__c sol = new SVMXC__Service_Order_Line__c();
+        sol.SVMXC__Service_Order__c = so.Id;
+        sol.RecordTypeID = UC_REC_TYPEID;
+        sol.SM_Duration_In_Hours__c = 1.5;
+        insert sol;
+        
+        SVMXC__Service_Order_Line__c oldSol = new SVMXC__Service_Order_Line__c();
+        oldSol.SVMXC__Service_Order__c = so.Id;
+        oldSol.RecordTypeID = UC_REC_TYPEID;
+        oldSol.SM_Duration_In_Hours__c = 1.0;
+        insert oldSol;
+        
+        SVMXC__Group_Member__c gm = new SVMXC__Group_Member__c();
+        gm.SVMX_PS_External_ID__c = '123';
+        insert gm;
+        
+        SM_Task__c task = new SM_Task__c();
+        task.SM_Task_Code__c = '123';
+        insert task;
+        
+        SVMXC__Service_Order__c childSo = new SVMXC__Service_Order__c();
+        childSo.SM_Activity_Line__c = '123';
+        childSo.ERP_Request_Type__c = '123';
+        childSo.SM_LN_Reference__c = '123';
+        childSo.SM_ERP_SO_Integrrated__c = true;
+        childSo.SM_ERP_Status__c = '123';
+        insert childSo;
+        
+        Map<Id, SVMXC__Service_Order__c> mapChildSO = new Map<Id, SVMXC__Service_Order__c>{childSo.Id => childSo};
+        
+        Map<Id, SVMXC__Group_Member__c> mapTech = new Map<Id, SVMXC__Group_Member__c>{gm.Id => gm};
+        
+        Map<Id, SM_Task__c> mapTask = new Map<Id, SM_Task__c>{task.Id => task};
+        
+        Map<Id, SVMXC__Service_Order_Line__c> TrigOldMap = new Map<Id, SVMXC__Service_Order_Line__c>{oldSol.Id => oldSol};
+        
+        Test.startTest();
+        
+        List<SVMXC__Service_Order_Line__c> lstTrigNew = new List<SVMXC__Service_Order_Line__c>{sol};
+        ServiceOrderLineRequest.processServiceOrderLine(lstTrigNew, mapChildSO, mapTech, mapTask, TrigOldMap);
+        
+        Test.stopTest();
+        
+        // Add assertions here
+        // Example: System.assertEquals(expectedValue, actualValue);
+    }
+    
+}
+
+
+ public static void generateJSON(List<SVMXC__Service_Order_Line__c> lstTrigNew,Map<Id,SVMXC__Service_Order_Line__c> TrigOldMap,String strOperation){
+        Set<String> setTaskId=new Set<String>();
+        Set<String> setTechId=new Set<String>();
+        Set<String> setSOIds=new Set<String>();
+        Map<String,SVMXC__Service_Order__c> mapChildSO=new Map<String,SVMXC__Service_Order__c>();
+        Map<String,SVMX_PS_Service_Task__c> mapTask=new Map<String,SVMX_PS_Service_Task__c>();
+        Map<String,SVMXC__Service_Group_Members__c> mapTech=new Map<String,SVMXC__Service_Group_Members__c>();
+        List<SVMXC__Service_Order_Line__c> SLlist=new List<SVMXC__Service_Order_Line__c>();       
+        ServiceOrderLineRequest req= new ServiceOrderLineRequest();
+        List<ServiceOrderLineRequest.ServiceOrderline> solList=new List<ServiceOrderLineRequest.ServiceOrderline>();   
+        ServiceOrderLineRequest.ServiceOrderline solWrapper;
+        String reqBody;
+        Boolean keyChange=false;//FP-1075 - Rav
+        Integer nmbrSeq;
+        decimal dcPrvHrs=0;
+        
+		ServiceOrderLineRequest.ServiceOrderline solWrapperUpdate;//below is for the line we need to send to ln if technician or task changed on  Usage Line
+        try{  
+            if(strOperation=='Update'||strOperation=='Delete'){
+                for(SVMXC__Service_Order_Line__c objwd:TrigOldMap.Values()){
+                    if(objwd.RecordTypeID==UC_REC_TYPEID){
+                        setTaskId.add(objWd.SM_Service_Task__c);
+                        setTechId.add(objWd.SVMXC__Group_Member__c);
+                        setSOIds.add(objWd.SVMXC__Service_Order__c);
+                    }
+                }
+            } 
+            if((strOperation=='Insert'||strOperation=='Update' )){
+                for(SVMXC__Service_Order_Line__c objwd:lstTrigNew){
+                    if(objwd.RecordTypeID==UC_REC_TYPEID){
+                        setTaskId.add(objWd.SM_Service_Task__c);
+                        setTechId.add(objWd.SVMXC__Group_Member__c);
+                        setSOIds.add(objWd.SVMXC__Service_Order__c);
+                    }
+                }       
+                if(!setSOIds.isEmpty())
+                    mapChildSO=getCServiceOrder(setSOIds);
+                if(!setTaskId.isEmpty()){
+                    mapTask=getServiceTask(setTaskId);
+                }
+                if(!setTechId.isEmpty()){
+                    mapTech=getTechnician(setTechId);
+                }
+              
+                for(SVMXC__Service_Order_Line__c objwd:lstTrigNew){
+                    keyChange=false;//FP-1075 - Ravi
+                    String soStatus='';
+                    Boolean erpIntrSts=false;
+                        if(objwd.RecordTypeID==UC_REC_TYPEID && !mapChildSO.isEmpty() && mapChildSO.containsKey(objWd.SVMXC__Service_Order__c) && objwd.SM_Duration_In_Hours__c!=null && !(mapTech.get(objwd.SVMXC__Group_Member__c)).SM_Restrict_Hours_Transfer_to_LN__c){
+                            System.debug('value2===' +objwd);
+                            solWrapper= new ServiceOrderLineRequest.ServiceOrderline();
+                            if(objwd.SVMXC__Group_Member__c!=null && String.isNotBlank(mapTech.get(objwd.SVMXC__Group_Member__c).SVMX_PS_External_ID__c)){
+                                solWrapper.technicianId=mapTech.get(objwd.SVMXC__Group_Member__c).SVMX_PS_External_ID__c;}
+                            if(objwd.SM_Service_Task__c!=null && mapTask.containsKey(objwd.SM_Service_Task__c)  &&String.isNotBlank(mapTask.get(objwd.SM_Service_Task__c).SM_Task_Code__c)){
+                                solWrapper.serviceTaskCode=mapTask.get(objwd.SM_Service_Task__c).SM_Task_Code__c;}
+                            if(String.isNotBlank(objwd.SVMX_PS_Start_Date_Time_Device__c)){
+                                solWrapper.startDate=String.Valueof(Date.ValueOf(objwd.SVMX_PS_Start_Date_Time_Device__c));}
+                            if(!mapChildSO.isEmpty() && mapChildSO.containsKey(objWd.SVMXC__Service_Order__c) ){
+                                if(String.isNotBlank(String.ValueOf(mapChildSO.get(objWd.SVMXC__Service_Order__c).SM_Activity_Line__c))){
+                                    solWrapper.activityLine=String.valueOf(mapChildSO.get(objwd.SVMXC__Service_Order__c).SM_Activity_Line__c);}
+                                if(String.isNotBlank(mapChildSO.get(objWd.SVMXC__Service_Order__c).ERP_Request_Type__c)){
+                                    solWrapper.ordertype=mapChildSO.get(objWd.SVMXC__Service_Order__c).ERP_Request_Type__c;}
+                                if(String.isNotBlank(mapChildSO.get(objWd.SVMXC__Service_Order__c).SM_LN_Reference__c)){
+                                    solWrapper.erprefnumber= mapChildSO.get(objWd.SVMXC__Service_Order__c).SM_LN_Reference__c;}
+                                erpIntrSts=mapChildSO.get(objWd.SVMXC__Service_Order__c).SM_ERP_SO_Integrrated__c;//FP-1563
+                                if(String.isNotBlank((mapChildSO.get(objWd.SVMXC__Service_Order__c).SM_ERP_Status__c))){
+                                    soStatus=mapChildSO.get(objWd.SVMXC__Service_Order__c).SM_ERP_Status__c;}//FP-1563
+                            }
+                         	if(TrigOldMap!=null){//FP-1075 - Ravi
+                            	if(objwd.SVMXC__Group_Member__c!=TrigOldMap.get(objWd.id).SVMXC__Group_Member__c||
+                              		objwd.SM_Service_Task__c!=TrigOldMap.get(objWd.id).SM_Service_Task__c){
+                                	keyChange=true;
+                              	}  
+                            }
+                            Decimal calculatedHours=0;//Ravi for duration in hours null and added TrigOldMap.get(objWd.id).SM_Duration_In_Hours__c!=null below
+                            if(TrigOldMap!=null&&objwd.SM_Duration_In_Hours__c!=TrigOldMap.get(objWd.id).SM_Duration_In_Hours__c&&TrigOldMap.get(objWd.id).SM_Duration_In_Hours__c!=null){// Danillo - TrigOldMap.isempty Ra
+                                keyChange=true;//rare case
+                                //objwd.SM_Last_Hours_Sent_to_LN__c=TrigOldMap.get(objWd.id).SM_Duration_In_Hours__c;//FP-1563
+                                if(objwd.SM_Duration_In_Hours__c==0.00&&TrigOldMap.get(objWd.id).SM_Duration_In_Hours__c>0){
+                                    calculatedHours=0-TrigOldMap.get(objWd.id).SM_Duration_In_Hours__c;
+                                }
+                                
+                                if(objwd.SM_Duration_In_Hours__c>0 && objwd.SM_Duration_In_Hours__c<TrigOldMap.get(objWd.id).SM_Duration_In_Hours__c){
+                                    calculatedHours=objwd.SM_Duration_In_Hours__c-TrigOldMap.get(objWd.id).SM_Duration_In_Hours__c;
+                                }else{//send added hours only
+                                    calculatedHours=objwd.SM_Duration_In_Hours__c-TrigOldMap.get(objWd.id).SM_Duration_In_Hours__c;
+                                }
+                                dcPrvHrs=TrigOldMap.get(objWd.id).SM_Duration_In_Hours__c;
+                            }
+							else{//new entry
+                                if(objwd.SM_Duration_In_Hours__c!=null){//ravi -- should we also check if TrigOldMap=null
+                                    if(TrigOldMap!=null && TrigOldMap.get(objWd.id).SM_Duration_In_Hours__c==null){//to set the flag only if its punch in scenario -FP-1714
+                                    	keyChange=true;//punch out scenario
+                                    }
+                                    calculatedHours=objwd.SM_Duration_In_Hours__c;
+                                }
+                            }
+                         	solWrapper.duration=String.valueOf(calculatedHours);
+							if(((keyChange||strOperation=='Insert') && mapTech.get(objwd.SVMXC__Group_Member__c).SVMX_PS_External_ID__c!=null)||Test.isRunningTest()){
+                                if((erpIntrSts && (soStatus=='Released' ||soStatus=='Completed'))||Test.isRunningTest()){//FP-1563
+                                    solWrapper.wdRecID=string.valueof(objwd.id);
+                                    AggregateResult[] groupedResults=[SELECT max(SM_Key_Upd_Seq__c)maxseq FROM SM_Work_Hour_Log__c where SM_Work_Order__c=:objwd.id];
+                                    Object obSeqNbr;
+                                    if(groupedResults[0].get('maxseq')!=null){
+                                    	obSeqNbr = groupedResults[0].get('maxseq');
+                                    }else{
+                                        obSeqNbr =0;
+                                    }
+                                    nmbrSeq=integer.valueOf(obSeqNbr);
+                                    solWrapper.wdSeqNum=string.valueof(nmbrSeq+1);
+                                    // Ravi - FP-1605 - End
+                            		solList.add(solWrapper);
+                                }
+   	if(!solList.isEmpty()){// Ravi - FP-1605 - Begin
+                    		req.serviceOrderline=solList;
+                          reqBody=JSON.serialize(req);
+                        }
+                    	if(String.isNotBlank(reqBody)){
+                            SM_ServiceOrderlineTriggerHandler.SendRequest(reqBody,sollist[0].wdRecID,sollist[0].wdSeqNum,dcPrvHrs);
+                            solList.clear();
+                        }// Ravi - FP-1605 - End
+                    }
+                }
+
+
+............................................................................................................................
+@isTest
+public class SM_ServiceOrderlineTriggerHandler_UT {
+
+
+     @TestSetup
+     static void makeData(){
+		List<BusinessHours> lstBh=[Select id,TimezoneSidKey from BusinessHours where IsActive=true];
+        List<SVMXC__Territory__c> lstTerritory=new List<SVMXC__Territory__c>();
+        lstTerritory.add(createTerritory('Finland',String.ValueOf(lstBh[0].id),'FI'));
+        lstTerritory.add(createTerritory('US',String.ValueOf(lstBh[0].id),'NA'));
+        lstTerritory.add(createTerritory('Indonesia',String.ValueOf(lstBh[0].id),'Asia'));
+        insert lstTerritory;    
+        
+        SVMX_PS_Availability_Week__c week=createAvbWeek(lstTerritory[0].id,0);
+        insert week;
+         
+        List<Account> accList=new List<Account>();
+        accList.add(SM_TestUtils.createAccount('TestAccount1',123987));
+        accList.add(SM_TestUtils.createAccount('Srini Test',756343));
+        accList.add(SM_TestUtils.createAccount('Reddy Test',657534));
+        insert accList;
+
+		List<Contact> conList=new List<Contact>();
+        conList.add(SM_TestUtils.createContact('Contact 1', accList[0].id, 123987));
+        conList.add(SM_TestUtils.createContact('Contact 2', accList[1].id, 645484));
+        conList.add(SM_TestUtils.createContact('Contact 3', accList[2].id, 928374));
+        insert conList;
+        
+        List<SVMXC__Site__c> lstLoc=new List<SVMXC__Site__c>();
+        lstLoc.add(SM_TestUtils.createLocation('TestAccount1',accList[0].id));
+        lstLoc.add(SM_TestUtils.createLocation('TestAccount2',accList[1].id));
+        lstLoc.add(SM_TestUtils.createLocation('TestAccount3',accList[2].id));
+        insert lstLoc;
+        
+        List<SVMX_PS_Activity_Group__c> lstAG=new List<SVMX_PS_Activity_Group__c>();
+        lstAG.add(SM_TestUtils.createActivityGroup('AIR01','Automative Maintenance'));
+        lstAG.add(SM_TestUtils.createActivityGroup('AIR03','Automative Maintenance1'));
+        lstAG.add(SM_TestUtils.createActivityGroup('AIR02','Automative Maintenance2'));
+        insert lstAG;
+        
+        List<SVMX_PS_Reference_Activity__c> lstRefAct=new List<SVMX_PS_Reference_Activity__c>();
+        lstRefAct.add(SM_TestUtils.createRefActivity(lstAG[0].id,'AIR01-001','Test AIR 01'));
+        lstRefAct.add(SM_TestUtils.createRefActivity(lstAG[1].id,'AIR01-002','Test AIR 21'));
+        lstRefAct.add(SM_TestUtils.createRefActivity(lstAG[2].id,'AIR01-003','Test AIR 31'));
+        insert lstRefAct;
+
+        List<SVMXC__Installed_Product__c> lstIP=new List<SVMXC__Installed_Product__c>();
+        lstIP.add(SM_TestUtils.createInstalledProd('Intalled Product','12345.PL.01',accList[0].id,lstLoc[0].id));
+        lstIP.add(SM_TestUtils.createInstalledProd('Intalled Product','12345.PL.001',accList[0].id,lstLoc[0].id));
+        lstIP.add(SM_TestUtils.createInstalledProd('Intalled Product','12345.PL.01.03',accList[0].id,lstLoc[0].id));
+        insert lstIP;
+        
+        List<SVMX_PS_Service_Department__c> lstSD=new List<SVMX_PS_Service_Department__c>();
+        lstSD.add(SM_TestUtils.createServiceDepartment('DEPT01','Department Desc 1'));
+        lstSD.add(SM_TestUtils.createServiceDepartment('DEPT02','Department Desc 2'));
+        lstSD.add(SM_TestUtils.createServiceDepartment('DEPT03','Department Desc 3'));
+        insert lstSD;
+        
+        List<SM_Delivery_Organization__c> lstDO=new List<SM_Delivery_Organization__c>();
+        lstDO.add(SM_TestUtils.createDeliverOrg('DO1','Deliver Org 1'));
+        lstDO.add(SM_TestUtils.createDeliverOrg('DO2','Deliver Org 2'));
+        lstDO.add(SM_TestUtils.createDeliverOrg('DO3','Deliver Org 3'));
+        insert lstDO;
+        
+        List<SVMX_PS_Service_Task__c> lstST=new List<SVMX_PS_Service_Task__c>();
+        lstST.add(SM_TestUtils.createServiceTask('ST01','ST 1'));
+        lstST.add(SM_TestUtils.createServiceTask('ST02','ST 2'));
+        lstST.add(SM_TestUtils.createServiceTask('ST03','ST 3'));
+        insert lstST;
+        
+        List<SM_Industry__c> lstIND=new List<SM_Industry__c>();
+        lstIND.add(SM_TestUtils.createIndustry('IND01','Industry Desc 1'));
+        lstIND.add(SM_TestUtils.createIndustry('IND02','Industry Desc 2'));
+        lstIND.add(SM_TestUtils.createIndustry('IND03','Industry Desc 3'));
+        insert lstIND;
+
+        List<SVMXC__Service_Order__c> lstParentSO=new List<SVMXC__Service_Order__c>();
+        Id parentSORecTypeId = Schema.SObjectType.SVMXC__Service_Order__c.getRecordTypeInfosByDeveloperName().get('SM_Parent_SO_MVP').getRecordTypeId();
+        lstParentSO.add(SM_TestUtils.createServiceOrder(parentSORecTypeId,accList[0].id,'Ref12345'));
+        lstParentSO.add(SM_TestUtils.createServiceOrder(parentSORecTypeId,accList[1].id,'Ref12398'));
+        lstParentSO.add(SM_TestUtils.createServiceOrder(parentSORecTypeId,accList[2].id,'Ref12309'));
+        insert lstParentSO;
+        
+        List<SVMXC__Service_Order__c> lstchildSO=new List<SVMXC__Service_Order__c>();
+        Id childSORecTypeId = Schema.SObjectType.SVMXC__Service_Order__c.getRecordTypeInfosByDeveloperName().get('SM_Child_SO_MVP').getRecordTypeId();
+        lstchildSO.add(SM_TestUtils.createServiceOrder(childSORecTypeId,accList[0].id,'Ref12345'));
+        lstchildSO.add(SM_TestUtils.createServiceOrder(childSORecTypeId,accList[1].id,'Ref12398'));
+        lstchildSO.add(SM_TestUtils.createServiceOrder(childSORecTypeId,accList[2].id,'Ref12309'));
+		lstchildSO[0].SM_ERP_SO_Integrrated__c=true;
+		lstchildSO[0].ERP_Request_Type__c='Service';
+		lstchildSO[0].SM_Activity_Group__c=lstAG[0].id;
+		lstchildSO[0].SM_Reference_Code__c=lstRefAct[0].id;
+        lstchildSO[0].SM_ERP_Status__c='Released';
+		lstchildSO[2].SM_ERP_SO_Integrrated__c=true;
+		lstchildSO[1].ERP_Request_Type__c='Service';
+		lstchildSO[1].SM_Activity_Group__c=lstAG[1].id;
+		lstchildSO[1].SM_Reference_Code__c=lstRefAct[1].id;
+		lstchildSO[1].SM_ERP_SO_Integrrated__c=true;
+        //lstchildSO[1].SM_ERP_Status__c='Released';
+        //lstchildSO[2].SM_ERP_Status__c='Released';
+		lstchildSO[2].ERP_Request_Type__c='Project';
+        insert lstchildSO;
+		String UC_REC_TYPEID=Schema.SObjectType.SVMXC__Service_Order_Line__c.getRecordTypeInfosByDeveloperName().get('UsageConsumption').getRecordTypeId();
+  
+        List<SVMXC__Service_Order_Line__c> SLlist=new List<SVMXC__Service_Order_Line__c>();  
+        SLlist.add(SM_TestUtils.createSOLine(lstchildSO[0].id,lstST[0].id,System.today(),System.today()+2,UC_REC_TYPEID));
+        SLlist.add(SM_TestUtils.createSOLine(lstchildSO[0].id,lstST[0].id,System.today()-1,System.today()+2,UC_REC_TYPEID));
+        SLlist.add(SM_TestUtils.createSOLine(lstchildSO[0].id,lstST[0].id,System.today()-2,System.today()+3,UC_REC_TYPEID));
+        SLlist.add(SM_TestUtils.createSOLine(lstchildSO[0].id,lstST[0].id,System.today()-1,System.today()+3,UC_REC_TYPEID));
+        SLlist.add(SM_TestUtils.createSOLine(lstchildSO[0].id,lstST[0].id,Date.newInstance(date.today().year(), 01, 04),Date.newInstance(date.today().year(), 01, 05),UC_REC_TYPEID));
+        SLlist.add(SM_TestUtils.createSOLine(lstchildSO[0].id,lstST[0].id,Date.newInstance(date.today().year(), 12, 29),Date.newInstance(date.today().year(), 12, 30),UC_REC_TYPEID));
+		SLlist[0].SM_WD_Composite_Key__c='0';
+		SLlist[1].SM_WD_Composite_Key__c='1';
+		SLlist[2].SM_WD_Composite_Key__c='2';
+		SLlist[3].SM_WD_Composite_Key__c='3';
+		SLlist[4].SM_WD_Composite_Key__c='4';
+		SLlist[5].SM_WD_Composite_Key__c='5';
+		insert SLlist;
+
+		List<SVMXC__Service_Group__c> SteamList=new List<SVMXC__Service_Group__c>();
+		SteamList.add(SM_TestUtils.createServiceTeam('Test1','test1@valmet.com',true));
+		insert SteamList;
+
+		List<SVMXC__Service_Group_Members__c> techlist=new List<SVMXC__Service_Group_Members__c>();
+		techlist.add(SM_TestUtils.createTechnician('Srini',SteamList[0].id));
+		techlist.add(SM_TestUtils.createTechnician('JUkka',SteamList[0].id));
+		techlist.add(SM_TestUtils.createTechnician('John',SteamList[0].id));
+		insert techlist;                
+    }
+    /**************************************************/
+   
+
+/**************************************************/
+    public static testmethod void SM_ServiceOrderLineRetry_Test(){
+		Test.startTest();
+       //SM_SOLRecursive.isRecursive=true;
+        
+        List<SVMXC__Service_Order_Line__c> SLlist=[Select id from SVMXC__Service_Order_Line__c WHERE SM_WD_Composite_Key__c='0' Limit 1];
+        for(SVMXC__Service_Order_Line__c sl:sllist){
+           // SM_Work_Hour_Log__c wl=[select id from SM_Work_Hour_Log__c where SM_Work_Order__c=:sl.id limit 1];
+            List<String> lpass=new List<String>();
+        	lpass.add(String.valueof(sl.id));
+            SM_Retry_LN_Hours.SM_Retry_LN_Hours(lpass);
+        }
+    
+        Test.stopTest();
+    }
+    public static testmethod void SM_ServiceOrderLineTrig_Test(){
+		Test.startTest();
+        SM_SOLRecursive.isRecursive=true;
+        List<SVMXC__Service_Order__c> lstChildSO=[Select id from SVMXC__Service_Order__c where Recordtype.DeveloperName='SM_Child_SO_MVP'];
+        lstChildSO[0].ERP_Request_Type__c='Project';
+        lstChildSO[0].SM_Activity_Line__c='9002';
+        lstChildSO[0].SM_ERP_Status__c='Released';
+        lstChildSO[0].SM_ERP_SO_Integrrated__c=true;
+        update lstChildSO[0];
+		List<SVMXC__Service_Group_Members__c> techlist=new List<SVMXC__Service_Group_Members__c>();
+        techlist=[Select id,SVMX_PS_External_ID__c from SVMXC__Service_Group_Members__c limit 3];
+        techlist[0].SVMX_PS_External_ID__c='123223';
+        update techlist[0];
+  		List<SVMX_PS_Service_Task__c> lstST=new List<SVMX_PS_Service_Task__c>();
+        lstST=[Select id,SM_Task_Code__c from SVMX_PS_Service_Task__c limit 3];
+        List<SVMX_PS_Availability_Week__c> lstAW=[SELECT Id,SVMX_PS_Week_Start_Date__c,SVMX_PS_Week_End_Date__c,SVMX_PS_Year_Week__c FROM SVMX_PS_Availability_Week__c];
+        List<SVMXC__Service_Order_Line__c> SLlist=[Select id,SVMXC__Start_Date_and_Time__c,SVMXC__End_Date_and_Time__c,SM_Duration_In_Hours__c from SVMXC__Service_Order_Line__c WHERE SM_WD_Composite_Key__c='0' Limit 10];
+        System.Debug('Danillovsky:'+SLlist);
+        SLlist[0].End_Date__c=System.today()-1;
+		SLlist[0].SVMX_PS_Start_Date_Time_Device__c= String.Valueof(System.now());
+		//SLlist[0].SVMXC__Group_Member__c=techlist[0].id;
+        SLlist[0].SVMXC__End_Date_and_Time__c=SLlist[0].SVMXC__Start_Date_and_Time__c.AddDays(9);
+		SLlist[0].SVMXC__Start_Date_and_Time__c=SLlist[0].SVMXC__Start_Date_and_Time__c.AddDays(10);
+		//SLlist[0].SM_Service_Task__c=lstST[0].id;
+		update SLlist[0];
+        SVMXC__Service_Order_Line__c sl=new SVMXC__Service_Order_Line__c();
+        SL.End_Date__c=System.today()-1;
+		SL.SVMX_PS_Start_Date_Time_Device__c= String.Valueof(System.now());
+		SL.SVMXC__Group_Member__c=techlist[0].id;
+        SL.SVMXC__End_Date_and_Time__c=SLlist[0].SVMXC__Start_Date_and_Time__c.AddDays(9);
+		SL.SVMXC__Start_Date_and_Time__c=SLlist[0].SVMXC__Start_Date_and_Time__c.AddDays(10);
+		SL.SM_Service_Task__c=lstST[0].id;
+        sl.SVMXC__Service_Order__c=lstChildSO[0].id;
+        insert sl;
+        
+        
+        //SLlist[0].SVMXC__Group_Member__c=techlist[1].id;
+		SLlist[0].SVMXC__Start_Date_and_Time__c=SLlist[0].SVMXC__Start_Date_and_Time__c.AddDays(-10);
+        //SLlist[0].SM_Service_Task__c=lstST[1].id;
+		update SLlist[0];
+		Test.stopTest();
+	}
+    public static testmethod void SM_ServiceOrderLineTrig_Test1(){
+		Test.startTest();
+        List<SVMXC__Service_Order__c> lstChildSO=[Select id from SVMXC__Service_Order__c where Recordtype.DeveloperName='SM_Child_SO_MVP'];
+        lstChildSO[0].ERP_Request_Type__c='Project';
+        lstChildSO[0].SM_Activity_Line__c='9002';
+        lstChildSO[0].SM_ERP_Status__c='Released';
+        lstChildSO[0].SM_ERP_SO_Integrrated__c=true;
+        update lstChildSO[0];
+		List<SVMXC__Service_Group_Members__c> techlist=new List<SVMXC__Service_Group_Members__c>();
+        techlist=[Select id,SVMX_PS_External_ID__c from SVMXC__Service_Group_Members__c limit 3];
+        techlist[0].SVMX_PS_External_ID__c='123223';
+        update techlist[0];
+  		List<SVMX_PS_Service_Task__c> lstST=new List<SVMX_PS_Service_Task__c>();
+        lstST=[Select id,SM_Task_Code__c from SVMX_PS_Service_Task__c limit 3];
+        List<SVMX_PS_Availability_Week__c> lstAW=[SELECT Id,SVMX_PS_Week_Start_Date__c,SVMX_PS_Week_End_Date__c,SVMX_PS_Year_Week__c FROM SVMX_PS_Availability_Week__c];
+        List<SVMXC__Service_Order_Line__c> SLlist=[Select id,SVMXC__Start_Date_and_Time__c,SVMXC__End_Date_and_Time__c,SM_Duration_In_Hours__c from SVMXC__Service_Order_Line__c WHERE SM_WD_Composite_Key__c='0' Limit 10];
+        System.Debug('Danillovsky:'+SLlist);
+        SLlist[0].End_Date__c=System.today()-1;
+		SLlist[0].SVMX_PS_Start_Date_Time_Device__c= String.Valueof(System.now());
+		//SLlist[0].SVMXC__Group_Member__c=techlist[0].id;
+        SLlist[0].SVMXC__End_Date_and_Time__c=SLlist[0].SVMXC__Start_Date_and_Time__c.AddDays(9);
+		SLlist[0].SVMXC__Start_Date_and_Time__c=SLlist[0].SVMXC__Start_Date_and_Time__c.AddDays(10);
+		//SLlist[0].SM_Service_Task__c=lstST[0].id;
+		update SLlist[0];
+        //SLlist[0].SVMXC__Group_Member__c=techlist[1].id;
+		SLlist[0].SVMXC__Start_Date_and_Time__c=SLlist[0].SVMXC__Start_Date_and_Time__c.AddDays(-10);
+        //SLlist[0].SM_Service_Task__c=lstST[1].id;
+		update SLlist[0];
+		Test.stopTest();
+	}
+    public static testmethod void SM_ServiceOrderLineTrigNeg_Test(){
+		Test.startTest();
+        List<SVMXC__Service_Order__c> lstChildSO=[Select id from SVMXC__Service_Order__c where Recordtype.DeveloperName='SM_Child_SO_MVP'];
+        lstChildSO[0].ERP_Request_Type__c='Project';
+        lstChildSO[0].SM_Activity_Line__c='9002';
+        update lstChildSO[0];
+        List<SVMXC__Service_Group_Members__c> techlist=new List<SVMXC__Service_Group_Members__c>();
+        techlist=[Select id from SVMXC__Service_Group_Members__c limit 3];
+  		List<SVMX_PS_Service_Task__c> lstST=new List<SVMX_PS_Service_Task__c>();
+        lstST=[Select id,SM_Task_Code__c from SVMX_PS_Service_Task__c limit 3];
+        List<SVMXC__Service_Order_Line__c> SLlist=[Select id from SVMXC__Service_Order_Line__c WHERE SM_WD_Composite_Key__c='1' Limit 10 ];
+		SLlist[0].End_Date__c=System.today();
+		//SLlist[0].SVMXC__Group_Member__c=techlist[0].id;
+		SLlist[0].SVMX_PS_Start_Date_Time_Device__c=String.Valueof(System.now());
+		//SLlist[0].SM_Service_Task__c=lstST[0].id;
+		Update SLlist[0];
+		Test.stopTest();
+	}
+    public static testmethod void SM_ServiceOrderLineTrigNeg_Test1(){
+		Test.startTest();
+        List<SVMXC__Service_Order__c> lstChildSO=[Select id from SVMXC__Service_Order__c where Recordtype.DeveloperName='SM_Child_SO_MVP'];
+        lstChildSO[0].ERP_Request_Type__c='Project';
+        lstChildSO[0].SM_Activity_Line__c='9002';
+        update lstChildSO[0];
+        List<SVMXC__Service_Group_Members__c> techlist=new List<SVMXC__Service_Group_Members__c>();
+        techlist=[Select id from SVMXC__Service_Group_Members__c limit 3];
+  		List<SVMX_PS_Service_Task__c> lstST=new List<SVMX_PS_Service_Task__c>();
+        lstST=[Select id,SM_Task_Code__c from SVMX_PS_Service_Task__c limit 3];
+        List<SVMXC__Service_Order_Line__c> SLlist=[Select id from SVMXC__Service_Order_Line__c WHERE SM_WD_Composite_Key__c='1' Limit 10 ];
+		
+		Delete SLlist[0];
+		Test.stopTest();
+	}
+	
+    public static SVMXC__Territory__c createTerritory(String Name,String bhId, String terCode){
+        SVMXC__Territory__c ter=new SVMXC__Territory__c(Name=name,SVMXC__Active__c=true,SVMXC__Territory_s_Business_Hours__c=bhId,SVMXC__Territory_Code__c=terCode,SVMX_PS_Calculate_Availability__c=true);
+        return ter;
+	}
+    
+    public static SVMX_PS_Availability_Week__c createAvbWeek(String terId, Integer days){
+        SVMX_PS_Availability_Week__c avbWk=new SVMX_PS_Availability_Week__c(
+			SVMX_PS_Week_Start_Date__c=Date.Today()+days,
+			SVMX_PS_Territory__c=terId
+        );
+        return avbWk;
+    }
+    
+}
+
+Valmet_Field Release N_FP_2023 (100973179) - TMA Development (003)
+
+
+Spare Part RFQ
+Schedulable_Autolaunched_flow
+Schedulable_Autolaunched_flow_UT
+
+picklist value api
+flow --- chnage sales part lead
+pehele schedule job delete
+class main replace karna hain 
+test class main replace karke run 
+
+SM_Schedule_Service_Lead_Flow sc= new SM_Schedule_Service_Lead_Flow();
+        String cronExp = '0 0 * * * ?'; //'0 20 * * * ?';
+		String jobID = system.schedule('SM_Schedule_Service_Lead_Flow', cronExp , sc);
+		System.debug('jobID : '+jobID);
+
+
+.................
+drilldown:{
+        label:function(ganttdata)
+        
+        {
+            return 'Go To '+ganttdata.recordtype+' "'+ganttdata.text+'"';
+        }
+
+.................
+drilldown: {
+  label: function(ganttdata) {
+    if (ganttdata.recordtype === "ResourceMember") {
+      return "Go to Technician";
+    } else {
+      return 'Go To '+ganttdata.recordtype+' "'+ganttdata.text+'"';
+    }
+  }
+}
+.................
+
+line 1000
+name:"ResourceMember",
+                label:"Resource Member",
+                level:2,
+                mapIndexToId:"ResourceMemberMapIndexToId",
+                filters:[
+                    {name:"ResourceMemberSelect",label:"Resource Member(s)",property:"text"}
+                ],
+                rightMenuOptionCommand:['drilldown','gotochildso','closeMenu']
+
+.................
+
+SM_Exception_Log
+
+c__recordId
+
+SM_EditAstuinTimeEntry.fetchWorkDetails
+SM_EditAstuinTimeEntry.fetchWorkDetails('a650C0000004TaHQAU'); -- excute
+WO-00149935
+
+Select id from SVMXC__Service_Order_Line__c WHERE SVMXC__Service_Order__c = 'a650C0000004TaHQAU' 
+
+   List<SM_Service_Order_Hour_Type_Detail__c> lstWDHT=[SELECT Id,SM_Work_Detail__r.SM_Duration_In_Hours__c,SM_Work_Detail__r.SM_Service_Task__r.Name,SM_Work_Detail__r.SM_Service_Order__c,SM_Travel_Type__c,Name,SM_Work_Detail__r.Technician_Name__c,SM_Work_Detail__r.Name,SM_Work_Detail__c,SM_Work_Detail__r.Start_Date__c,SM_Work_Detail__r.Start_Time__c,SM_Work_Detail__r.End_Date__c,SM_Work_Detail__r.End_Time__c,SM_Work_Detail__r.SVMXC__Start_Date_and_Time__c,SM_Work_Detail__r.SVMXC__End_Date_and_Time__c,SM_Work_Detail__r.SVMXC__Work_Description__c,SM_Work_Detail__r.SVMXC__Group_Member__c,SM_Work_Detail__r.SVMXC__Line_Type__c,SM_Work_Detail__r.SM_Service_Task__c,SM_Work_Detail__r.SVMX_PS_Start_Date_Time_Device__c,SM_Work_Detail__r.SVMX_PS_End_Date_Time_Device__c,SM_Line_Type__c,SM_Distance_in_KM__c,SM_Destination__c,SM_Source__c,SM_Daily_Allowance__c,SM_No_of_Meal_Benefits__c,SM_Shift__c,SM_Day__c,SM_Date__c,SM_week__c,SM_Add_Travelers_Name__c,SM_Technician_Equipment__c,SM_Accomodation_Type__c,SM_Car_Type__c,SM_No_of_Colleagues_Travelled__c FROM SM_Service_Order_Hour_Type_Detail__c WHERE SM_Work_Detail__c IN : setWD order by SM_Work_Detail__r.Name]; // RecordType.Name='Related Work Detail' AND//  order by SM_Work_Detail__r.Name desc.. desc  LIMIT 500
+        System.debug('lstWDHT ' +lstWDHT.size());
+
+
+Select id,RecordType.Name,SVMXC__Line_Type__c from SVMXC__Service_Order_Line__c where RecordType.Name= 'Usage/Consumption' AND (SVMXC__Line_Type__c ='Labor' OR SVMXC__Line_Type__c ='Travel') 
+
+SELECT Id,SM_Work_Detail__r.SM_Duration_In_Hours__c,SM_Work_Detail__r.SM_Service_Task__r.Name,SM_Work_Detail__r.SM_Service_Order__c,SM_Travel_Type__c,Name,SM_Work_Detail__r.Technician_Name__c,SM_Work_Detail__r.Name,SM_Work_Detail__c,SM_Work_Detail__r.Start_Date__c,SM_Work_Detail__r.Start_Time__c,SM_Work_Detail__r.End_Date__c,SM_Work_Detail__r.End_Time__c,SM_Work_Detail__r.SVMXC__Start_Date_and_Time__c,SM_Work_Detail__r.SVMXC__End_Date_and_Time__c,SM_Work_Detail__r.SVMXC__Work_Description__c,SM_Work_Detail__r.SVMXC__Group_Member__c,SM_Work_Detail__r.SVMXC__Line_Type__c,SM_Work_Detail__r.SM_Service_Task__c,SM_Work_Detail__r.SVMX_PS_Start_Date_Time_Device__c,SM_Work_Detail__r.SVMX_PS_End_Date_Time_Device__c,SM_Line_Type__c,SM_Distance_in_KM__c,SM_Destination__c,SM_Source__c,SM_Daily_Allowance__c,SM_No_of_Meal_Benefits__c,SM_Shift__c,SM_Day__c,SM_Date__c,SM_week__c,SM_Add_Travelers_Name__c,SM_Technician_Equipment__c,SM_Accomodation_Type__c,SM_Car_Type__c,SM_No_of_Colleagues_Travelled__c FROM SM_Service_Order_Hour_Type_Detail__c WHERE SM_Work_Detail__r.RecordType.Name= 'Usage/Consumption' AND (SM_Work_Detail__r.SVMXC__Line_Type__c ='Labor' OR SM_Work_Detail__r.SVMXC__Line_Type__c ='Travel') AND SM_Work_Detail__c IN : setWD order by SM_Work_Detail__r.Name
+
+
+record type : Usage / Consumption , Line Type is Labor / Travel 
+
+with or without work detail info
+
+send me previous SOQL and New SOQL so that i can review and confirm
+---ananomayous window--SM_EditAstuinTimeEntry.fetchWorkDetails('a650C0000004TaHQAU');
+
+ AND SM_Work_Detail__c IN : setWD
+
+ drilldown:{
+            label:function(ganttdata){
+                if (ganttdata.recordtype === "ResourceMember") {
+                    return 'Go To Technician "'+ganttdata.text+'"';
+                } else {
+                    return 'Go To '+ganttdata.recordtype+' "'+ganttdata.text+'"';
+                }
+            }
+        },
+
+www.linkedin.com/in/ashutosh-singh-103215198
+
+
+
+SM_Interface_Request__c
+
+Request_status__c ---> 
+
+Description
+
+Improve the Record Classification so that its easy to generate the report using Salesforce Reporting
+
+Acceptance Criteria Description
+
+All the logs generated should have the proper classification based on the Functionality 
+
+Solution Design
+
+SM_Error_Interface__c
+
+SM_Error_Source__c
+
+SM_Interface_Request__c
+
+Request_status__c
+
+should be populated based on the the functionality and precisely mention the area
+
+
+explaination -- what it is related to and the method name is method A so accordingly you have to populate that field
+
+for example the error_interface will be like the functionality for example you can say it as an service order creation something like that 
+the source you can mention like in which class and in which method for M_Interface_Request__c you can mention like which class it is and which method something like that 
+
+this Request_status__c is an existing field we can log like weather it is an validation or its is an null pointer exception 
+for eg system is throwing an valdition error 
+
+
+where ever this is been used we have to pass a coressponding value to it 
+
+code -- public with sharing class SM_Exception_Log {
+   
+    public static void insertExceptionLog(String strErrorInterface,String strErrorSource,String strInterfaceRequest,String strRequestStatus, String strStatusCode,String strValidationDetails){
+        SM_Error_Log__c objSE=new SM_Error_Log__c();
+        objSE.SM_Error_Interface__c=strErrorInterface;
+        objSE.SM_Error_Source__c=strErrorSource;
+        objSE.SM_Interface_Request__c=strInterfaceRequest;
+        objSE.Request_status__c=strRequestStatus;
+        objSE.Status_Code__c=strStatuscode;
+        objSE.SM_Validation_Error_Details__c=strValidationDetails;
+        insert objSE;
+    }
+
+   
+} 
+
+Based on the provided solution design, it appears that the code for improving record classification involves a public class called SM_Exception_Log that includes a static method called insertExceptionLog.
+
+This method takes in several parameters, including strErrorInterface, strErrorSource, strInterfaceRequest, strRequestStatus, strStatusCode, and strValidationDetails. These parameters are used to populate the corresponding fields in the SM_Error_Log__c object.
+
+To use this method, you would need to pass in the appropriate values for each parameter based on the functionality and area being logged. For example, if you were logging an error related to service order creation, you might pass in "Service Order Creation" for the strErrorInterface parameter and the name of the class and method where the error occurred for the strErrorSource parameter.
+
+By populating these fields with the appropriate values, it should be possible to generate accurate reports using Salesforce Reporting. However, it is important to ensure that all logs are properly classified based on functionality to ensure that the reports are useful and informative.
+
+
+
+
+Ashutosh Keshari Singh
+how to pass in the appropriate values for each parameter based on the functionality and area being logged.For example, if you were logging an error related to service order creation, you might pass in "Service Order Creation" for the strErrorInterface parameter and the name of the class and method where the error occurred for the strErrorSource parameter.
+
+By populating these fields with the appropriate values, it should be possible to generate accurate reports using Salesforce Reporting. However, it is important to ensure that all logs are properly classified based on functionality to ensure that the reports are useful and informative.
+To pass in appropriate values for each parameter based on the functionality and area being logged, you need to have a clear understanding of the functionality and the area where the error occurred. Here are some examples of how you can pass in values for each parameter based on the context:
+
+SM_Error_Interface__c: This field should be populated with the error interface for the corresponding functionality. For example, if you are logging an error related to Service Order Creation, you might pass in "Service Order Creation" as the value for this field.
+SM_Error_Source__c: This field should be populated with the error source for the corresponding functionality. For example, if you are logging an error that occurred in the "ServiceOrderCreation" class, you might pass in "ServiceOrderCreation.methodName" as the value for this field, where "methodName" is the name of the method where the error occurred.
+SM_Interface_Request__c: This field should be populated with the interface request for the corresponding functionality. For example, if you are logging an error related to a specific API call, you might pass in the details of the API call such as the URL, request headers, and request body as the value for this field.
+Request_status__c: This field should be populated with the request status for the corresponding functionality. For example, if you are logging an error related to a validation rule, you might pass in "Validation Error" as the value for this field.
+By passing in appropriate values for each parameter based on the context, you can ensure that all logs are properly classified based on functionality. This will help you generate accurate reports using Salesforce Reporting, and ensure that the reports are useful and informative.
+
+
+
+
+Ashutosh Keshari Singh
+how to write a apex code to pass in the value
+Here is an example of how you can write an Apex code to pass in the values to the SM_Exception_Log class:
+
+apex
+Copy code
+public with sharing class MyServiceClass {
+    
+    public static void createServiceOrder(String serviceOrderName) {
+        try {
+            // Code to create service order
+        } catch(Exception ex) {
+            // Log error details
+            SM_Exception_Log.insertExceptionLog('Service Order Creation', 'MyServiceClass.createServiceOrder', 'Service Order API Request', 'Validation Error', ex.getMessage(), null);
+        }
+    }
+    
+}
+In this example, we have a service class called MyServiceClass that has a method called createServiceOrder. This method takes in the service order name as a parameter and is responsible for creating a new service order.
+
+If an exception occurs while creating the service order, we catch the exception and log the error details using the SM_Exception_Log class. We pass in the appropriate values for each parameter based on the context:
+
+SM_Error_Interface__c: We pass in 'Service Order Creation' since we are logging an error related to service order creation.
+SM_Error_Source__c: We pass in 'MyServiceClass.createServiceOrder' since the error occurred in the createServiceOrder method of the MyServiceClass class.
+SM_Interface_Request__c: We pass in 'Service Order API Request' as the value since the error is related to an API request for creating a service order.
+Request_status__c: We pass in 'Validation Error' since the error occurred due to a validation rule.
+strStatusCode: We pass in ex.getMessage() which returns the error message from the caught exception.
+strValidationDetails: We pass in null since there are no additional validation details to include in this error log.
+By passing in the appropriate values to the SM_Exception_Log class, we can log errors with proper classification based on functionality, and generate accurate reports using Salesforce Reporting.t
+
+
+
+
+..............................................................................................................
+BKNPS7197A
+953810973863
+..............................................................................................................
+SELECT Id,Name,SM_Event_Start_Date_Time__c,SM_Event_End_Date_Time__c,SVMXC__StartDateTime__c,SVMXC__EndDateTime__c,Installation_Group__c,SVMXC__Location__c,SVMX_PS_Assigned_to_Resource__c,SM_Source_ServiceMax_Event__c,
+            SVMXC__Description__c,SM_Week_Days__c,SM_SB_ActivityGroup__c,SVMXC__WhoId__c,
+            SVMXC__SM_Appointment_Status__c,SM_WO_Lead_Technician__c,MVP_Comments__c,
+            SVMXC__ActivityDate__c,SM_SB_Reference_Activity__c,SVMXC__ActivityDateTime__c,
+            SVMX_PS_Intended_daily_hours__c,SVMXC__Type__c,SVMXC__IsAllDayEvent__c
+            FROM SVMXC__SVMX_Event__c
+
+
+explain the expection used in this code and if the value CP&Demand is changes based on the functionailty of the code what should be the value renamed to
+
+@AuraEnabled(cacheable=false)//Allow DML update on APEX from LWC call
+    public static List<Id> CopyEventToTechnician(Id EventId,List<String> TechIds){
+        List<Id> ListOfClonedEventId=new List<Id>();
+        SVMXC__SVMX_Event__c EventRecord=[
+            SELECT Id,Name,SM_Event_Start_Date_Time__c,SM_Event_End_Date_Time__c,
+            SVMXC__StartDateTime__c,SVMXC__EndDateTime__c,Installation_Group__c,
+            /*SVMXC__Service_Order__c,SVMXC__WhatId__c,*/
+            SVMXC__Location__c,SVMX_PS_Assigned_to_Resource__c,SM_Source_ServiceMax_Event__c,
+            SVMXC__Description__c,SM_Week_Days__c,SM_SB_ActivityGroup__c,SVMXC__WhoId__c,
+            SVMXC__SM_Appointment_Status__c,SM_WO_Lead_Technician__c,MVP_Comments__c,
+            SVMXC__ActivityDate__c,SM_SB_Reference_Activity__c,SVMXC__ActivityDateTime__c,
+            SVMX_PS_Intended_daily_hours__c,SVMXC__Type__c,SVMXC__IsAllDayEvent__c
+            FROM SVMXC__SVMX_Event__c WHERE Id=:eventId LIMIT 1];
+        List<SVMXC__SVMX_Event__c> ListOfClonedEvents=new List<SVMXC__SVMX_Event__c>();
+        if(EventRecord!=null){
+            for(String TechId:TechIds){
+            	SVMXC__SVMX_Event__c EventClone=EventRecord.clone(false,false,false,false);
+                EventClone.SM_Source_ServiceMax_Event__c=EventRecord.Id;
+            	EventClone.SVMXC__Technician__c=TechId;
+                ListOfClonedEvents.add(EventClone);
+            }
+            if(ListOfClonedEvents.size()>0&&ListOfClonedEvents!=null){
+            	try{
+                    insert(ListOfClonedEvents);
+                    for(SVMXC__SVMX_Event__c clonedEvent:ListOfClonedEvents){
+                        ListOfClonedEventId.add(clonedEvent.id);
+                    }
+                }
+            	catch(Exception e){SM_Exception_Log.insertExceptionLog('CP&Demand','SM_EventUtilities.copyEventToTechnician',null,null,null,e.getMessage()+'-'+e.getStackTraceString());}
+			}
+        }
+        return ListOfClonedEventId;
+    }
+
+
+what does null means in the below code
+catch(Exception e){SM_Exception_Log.insertExceptionLog('CP&Demand','SM_EventUtilities.copyEventToTechnician',null,null,null,e.getMessage()+'-'+e.getStackTraceString());}
+
+
+The functionality of this code is to clone a given SVMXC__SVMX_Event__c record for each technician in the provided list of technician Ids, and insert the cloned records into the database.
+
+The method CopyEventToTechnician takes two parameters, EventId and TechIds. It first queries the SVMXC__SVMX_Event__c object to retrieve the event record based on the given EventId.
+
+If the event record is not null, the method clones the event record for each technician in the TechIds list and adds them to the ListOfClonedEvents list. After cloning the event records, the method attempts to insert them into the database.
+
+If the insertion is successful, the method adds the Ids of the cloned events to the ListOfClonedEventId list and returns it. If the insertion fails, the method catches the exception, logs it using the SM_Exception_Log custom object, and returns an empty ListOfClonedEventId.
+
+Overall, this code provides a way to quickly and easily clone an event record for multiple technicians at once, which can be useful in situations where the same event needs to be scheduled for multiple technicians or where technicians need to perform the same task at different times.
+
+
+
+
+
+Ashutosh Keshari Singh
+what does null means in the below code
+catch(Exception e){SM_Exception_Log.insertExceptionLog('CP&Demand','SM_EventUtilities.copyEventToTechnician',null,null,null,e.getMessage()+'-'+e.getStackTraceString());}
+In the given code, null is used to represent the relatedToId and parentId parameters of the SM_Exception_Log.insertExceptionLog method.
+
+The SM_Exception_Log.insertExceptionLog method is a custom method that logs exceptions in a custom object SM_Exception_Log. The method takes several parameters, including the relatedToId and parentId parameters which are optional. These parameters are used to relate the exception log record to another record in the system, such as an associated record or a parent record.
+
+In the given code, the relatedToId and parentId parameters are not relevant to the exception being logged, so they are set to null. This means that the exception log record will not be associated with any other record in the system.
+
+The null keyword in Apex represents a reference to no object or no value. In this case, it is used to represent the absence of a value for the relatedToId and parentId parameters.
+
+
+
+
+
+Ashutosh Keshari Singh
+what does relatedtoID and parentid means
+In Apex, relatedToId and parentId are optional parameters that can be used to associate a custom object record with another record in the system.
+
+relatedToId is typically used to associate an exception record with a specific record that was being processed when the exception occurred. For example, if an exception occurs while processing an Account record, the relatedToId parameter can be set to the Id of that Account record to associate the exception record with the Account.
+
+parentId is used to associate an object record with its parent record. For example, if an Opportunity record is created for an Account, the parentId parameter can be set to the Id of the associated Account record to link the Opportunity record to its parent Account.
+
+Both relatedToId and parentId are optional parameters in the SM_Exception_Log.insertExceptionLog method, and they are not required for logging an exception. However, using these parameters can be helpful for tracking and debugging issues in the system.
+
+
+
+
+
+Ashutosh Keshari Singh
+explain me everything which is need to write the exception for below code catch(Exception e){SM_Exception_Log.insertExceptionLog('CP&Demand','SM_EventUtilities.copyEventToTechnician',null,null,null,e.getMessage()+'-'+e.getStackTraceString());}
+The code you provided is a catch block for an exception that might occur in the preceding try block. When an exception is caught, the catch block logs the exception information to a custom object SM_Exception_Log using the custom method SM_Exception_Log.insertExceptionLog.
+
+Here's an explanation of the different elements in the catch block:
+
+catch(Exception e) - This line of code initiates the catch block and specifies the type of exception that will be caught, which is Exception.
+
+SM_Exception_Log.insertExceptionLog - This is a custom method that logs exception information to a custom object SM_Exception_Log.
+
+'CP&Demand' - This is a string value that represents the name of the application or module where the exception occurred. It is used to identify the source of the exception in the exception log.
+
+'SM_EventUtilities.copyEventToTechnician' - This is a string value that represents the name of the method where the exception occurred. It is used to identify the source of the exception in the exception log.
+
+null and null - These are optional parameters that can be used to associate the exception record with another record in the system. In this case, they are set to null because there is no specific record to associate with the exception.
+
+e.getMessage()+'-'+e.getStackTraceString() - These are string values that contain the message and stack trace of the caught exception. The getMessage() method returns the error message associated with the exception, and getStackTraceString() method returns a string representation of the exception's stack trace.
+
+Together, these elements create an exception log record in the custom object SM_Exception_Log that includes information about the caught exception, including its source, message, and stack trace. This can be helpful for identifying and resolving issues in the system.
+
+
+..............................................................................................................
+explain the code and the funtionality of the code
+
+@AuraEnabled(cacheable=false)//Allow DML update on APEX from LWC call
+    public static List<Id> TransformEventIntoAppointment(Id serviceOrderId,List<RelatedEventWrapper> events){
+        List<Id> ListOfTransformedEventId=new List<Id>();
+        Map<String,String> mapEventResource=new Map<String,String>();
+		Map<String,DateTime> mapEventStartDate=new Map<String,DateTime>();
+		Map<String,DateTime> mapEventEndDate=new Map<String,DateTime>();
+        for(RelatedEventWrapper event:events){
+        	mapEventResource.put(event.EventId,event.ResourceId);
+			mapEventStartDate.put(event.EventId,event.StartDateTime);
+			mapEventEndDate.put(event.EventId,event.EndDateTime);
+		}
+        List<SVMXC__SVMX_Event__c> ListOfEvents=new List<SVMXC__SVMX_Event__c>();//Get information of all Events on the Input
+        List<SVMXC__SVMX_Event__c> ListOfClonedEvents=new List<SVMXC__SVMX_Event__c>();//Generate a list of cloned records -> Appointments
+        List<SVMXC__SVMX_Event__c> ListOfClonedEventsSource=new List<SVMXC__SVMX_Event__c>();//The source record of the list (for relationship)
+		Id SourceEventId;
+        String serviceOrderRef;
+        String serviceOrderAccName;
+        String serviceOrderDesc;
+        String appointmentName='';
+        for(SVMXC__Service_Order__c serviceOrderRecord:[SELECT Id,Name,SM_LN_Reference__c,SVMXC__Company__r.Name,SVMXC__Problem_Description__c FROM SVMXC__Service_Order__c WHERE Id=:serviceOrderId LIMIT 1]){
+            /*
+            if(serviceOrderRecord.SM_LN_Reference__c!=''&&serviceOrderRecord.SM_LN_Reference__c!=null){serviceOrderRef=serviceOrderRecord.SM_LN_Reference__c;}
+            else{serviceOrderRef=serviceOrderRecord.Name;}//Make sure the variable is populated
+            serviceOrderAccName=serviceOrderRecord.SVMXC__Company__r.Name;//Mandatory field, always present
+            if(serviceOrderRecord.SVMXC__Problem_Description__c!=''&&serviceOrderRecord.SVMXC__Problem_Description__c!=null){serviceOrderDesc=serviceOrderRecord.SVMXC__Problem_Description__c.left(100);}//Prevent heap as this textarea can be huge
+            else{serviceOrderDesc='';}            
+            appointmentName='['+serviceOrderRef+']-['+serviceOrderAccName+']-'+serviceOrderDesc;
+            appointmentName=appointmentName.left(79);//Appointment Name matching Service Max logic
+			*/
+            appointmentName=generateAppointmentName(serviceOrderRecord.Name,serviceOrderRecord.SM_LN_Reference__c,serviceOrderRecord.SVMXC__Company__r.Name,serviceOrderRecord.SVMXC__Problem_Description__c);
+        }
+        Set<String> EventIds=new Set<String>();//Event Ids for Query
+        if(serviceOrderId!=null&&(mapEventResource!=null&&!mapEventResource.isEmpty())){
+            EventIds=mapEventResource.keySet();
+            ListOfEvents=[
+                SELECT Id,Name,SM_Event_Start_Date_Time__c,SM_Event_End_Date_Time__c,
+                SVMXC__StartDateTime__c,SVMXC__EndDateTime__c,SVMXC__Service_Order__c,
+                SVMXC__WhatId__c,SVMXC__Location__c,SVMX_PS_Assigned_to_Resource__c,
+                SVMXC__Description__c,SM_Week_Days__c,SM_SB_ActivityGroup__c,SVMXC__WhoId__c,
+                SVMXC__SM_Appointment_Status__c,SM_WO_Lead_Technician__c,MVP_Comments__c,
+                SVMXC__ActivityDate__c,SM_SB_Reference_Activity__c,SVMXC__ActivityDateTime__c,
+                SVMX_PS_Intended_daily_hours__c,SVMXC__Type__c,SVMXC__Technician__c,SVMXC__IsAllDayEvent__c,
+                SVMXC__Driving_Time_Home__c,SVMXC__Driving_Time__c,SVMXC__SM_Latitude__c,
+                SVMXC__SM_Longitude__c,SVMXC__SM_Version_Number__c,SM_Source_ServiceMax_Event__c
+                FROM SVMXC__SVMX_Event__c WHERE Id IN:EventIds];
+            
+            for(SVMXC__SVMX_Event__c eventRecord:ListOfEvents){
+                if(mapEventResource.containsKey(eventRecord.Id)){//Make sure there is Resource Id for the Event record
+                    if(mapEventResource.get(eventRecord.Id)!=null&&mapEventResource.get(eventRecord.Id)!=''){
+                        SVMXC__SVMX_Event__c eventClone=eventRecord.clone(false, false, false, false);
+                        if(appointmentName!=''){eventClone.Name=appointmentName;}//Appointment Name matching Service Max logic
+                        eventClone.SVMXC__SM_Integration_Source__c='Remote';
+                        eventClone.SVMXC__Type__c='';
+                        //eventClone.SVMXC__IsAllDayEvent__c=eventRecord.SVMXC__IsAllDayEvent__c;
+                        eventClone.SVMXC__IsAllDayEvent__c=false;
+                        eventClone.SVMXC__SM_Status__c='Assigned';
+                        eventClone.SVMXC__SM_Appointment_Status__c='Assigned';
+                        eventClone.SVMXC__WhatId__c=serviceOrderId;
+                        eventClone.SVMXC__Service_Order__c=serviceOrderId;
+                        eventClone.SVMX_PS_Assigned_to_Resource__c=mapEventResource.get(eventRecord.Id);
+                        eventClone.SVMXC__StartDateTime__c=mapEventStartDate.get(eventRecord.Id);
+                        eventClone.SVMXC__EndDateTime__c=mapEventEndDate.get(eventRecord.Id);
+                        if(eventRecord.SM_Source_ServiceMax_Event__c==null){ListOfClonedEventsSource.add(eventClone);}
+                        else{ListOfClonedEvents.add(eventClone);}
+					}
+				}
+            }
+            if(ListOfEvents!=null&&!ListOfEvents.isEmpty()){//Events on the process
+                try{
+					if(ListOfClonedEventsSource!=null&&!ListOfClonedEventsSource.isEmpty()){
+						insert ListOfClonedEventsSource;
+						SourceEventId=ListOfClonedEventsSource[0].Id;//First insert the Source then get the Id to relate with the siblings
+                        ListOfTransformedEventId.add(SourceEventId);//add the source Id for LWC return
+					}
+					if(ListOfClonedEvents!=null&&!ListOfClonedEvents.isEmpty()){
+						for(SVMXC__SVMX_Event__c clonedEvent:ListOfClonedEvents){
+							clonedEvent.SM_Source_ServiceMax_Event__c=SourceEventId;
+						}
+						insert ListOfClonedEvents;
+                        for(SVMXC__SVMX_Event__c clonedEvent:ListOfClonedEvents){//after inserting, collect all Ids for the LWC as return
+                        	ListOfTransformedEventId.add(clonedEvent.id);
+                    	}
+					}
+                	delete ListOfEvents;
+                }
+				catch(Exception e){SM_Exception_Log.insertExceptionLog('CP&Demand','SM_EventUtilities.TransformEventIntoAppointment',null,null,null,e.getMessage()+'-'+e.getStackTraceString());}
+			}
+		}
+        return ListOfTransformedEventId;
+    }
+
+
+This is an Apex class method called "TransformEventIntoAppointment". The method takes in two parameters, serviceOrderId and a list of custom wrapper objects called "RelatedEventWrapper". The method converts events (SVMXC__SVMX_Event__c) associated with the input service order into appointments (also SVMXC__SVMX_Event__c).
+
+Here is a breakdown of the code:
+
+The "@AuraEnabled" annotation enables the method to be called from a Lightning web component (LWC).
+The method returns a list of appointment Ids.
+The method uses three maps to store information about the events: mapEventResource to map event Ids to resource Ids, mapEventStartDate to map event Ids to start datetimes, and mapEventEndDate to map event Ids to end datetimes.
+A for loop is used to populate the three maps with data from the input list of wrapper objects.
+Three lists are created: ListOfEvents, ListOfClonedEvents, and ListOfClonedEventsSource. These lists will be used later to store information about events and cloned appointments.
+Another for loop is used to query for information about the service order associated with the input service order Id. The information is used to generate an appointment name.
+The EventIds set is populated with event Ids from the mapEventResource map.
+The ListOfEvents is populated with information about the events associated with the input service order.
+Another for loop is used to iterate through the ListOfEvents. For each event, the method checks if there is a corresponding resource Id in the mapEventResource map. If there is, the event is cloned as an appointment and added to the ListOfClonedEvents list. The appointment's fields are set based on the corresponding event's fields, with some modifications made to certain fields.
+The ListOfClonedEventsSource list is populated with the original events that were cloned to create the appointments in ListOfClonedEvents.
+The appointments in ListOfClonedEvents are inserted into the database.
+The method returns a list of appointment Ids.
+
+..............................................................................................................
+
+explian the code as well as the functionality of the code 
+
+public static void VerifyAssignedResource(List<SVMXC__SVMX_Event__c> lstTrigNew, Map<Id,SVMXC__SVMX_Event__c> mapTrigOld){
+        Map<Id,Integer> mapResourceQtd=new map<Id,Integer>();
+		Set<Id> setResourceID=new Set<Id>();
+        Boolean eventResourceUpdated;
+        Boolean eventStatusUpdated;
+        Boolean eventCanceled;
+        Boolean eventRejected;
+	    for(SVMXC__SVMX_Event__c objEvt:lstTrigNew){//For each Event, get the Resource
+		    if(objEvt.SVMXC__Service_Order__c!=null&&objEvt.SVMXC__Type__c==null){//DG-07.04.2022 FP-1121 check if no work order and type is null to perform the validation
+                if(mapTrigOld!=null){//Check if Map input is set
+                    if(!mapTrigOld.isEmpty()){//if Map input is set, check if is not empty, meaning a record has been updated
+                        if(mapTrigOld.containsKey(objEvt.Id)){//and only if the Resource has been updated or the status changed to 'Canceled' or 'Rejected'
+                            eventResourceUpdated=objEvt.SVMX_PS_Assigned_to_Resource__c!=mapTrigOld.get(objEvt.id).SVMX_PS_Assigned_to_Resource__c;
+                            eventStatusUpdated=objEvt.SVMXC__SM_Appointment_Status__c!=mapTrigOld.get(objEvt.id).SVMXC__SM_Appointment_Status__c;
+                            eventCanceled=objEvt.SVMXC__SM_Appointment_Status__c=='Canceled';
+                            eventRejected=objEvt.SVMXC__SM_Appointment_Status__c=='Rejected';
+							if(eventResourceUpdated){
+                                setResourceID.add(objEvt.SVMX_PS_Assigned_to_Resource__c);
+                                setResourceID.add(mapTrigOld.get(objEvt.id).SVMX_PS_Assigned_to_Resource__c);//if Resource is updated, the old Resource should also be checked
+                            }
+                            else if(eventStatusUpdated&&(eventCanceled||eventRejected)){
+                                setResourceID.add(objEvt.SVMX_PS_Assigned_to_Resource__c);
+                            }
+                        }
+                    }
+                }
+                else{setResourceID.add(objEvt.SVMX_PS_Assigned_to_Resource__c);}//Record created (mapTrigOld not populated)
+            }
+		}
+		for(Id resource:setResourceID){mapResourceQtd.put(resource,0);}//reset quantity of Resource in case there is no more appointment associated (not considered on the group count query below)
+        if(!setResourceID.isEmpty()){
+            for(AggregateResult resourceQuantity:[//For each Resource, get the count of valid Events
+                    SELECT SVMX_PS_Assigned_to_Resource__c,count(Name) 
+                    FROM SVMXC__SVMX_Event__c
+                    WHERE SVMXC__SM_Appointment_Status__c!='Canceled'
+                    AND SVMXC__SM_Appointment_Status__c!='Rejected'
+                    AND SVMX_PS_Assigned_to_Resource__c IN:setResourceID
+                    GROUP BY SVMX_PS_Assigned_to_Resource__c]){
+                if(resourceQuantity.get('SVMX_PS_Assigned_to_Resource__c')!=null){
+					mapResourceQtd.put(Id.valueOf(String.valueOf(resourceQuantity.get('SVMX_PS_Assigned_to_Resource__c'))),Integer.valueOf(resourceQuantity.get('expr0')));
+                }
+            }
+		}
+		List<SM_Resource__c> lstResourceUpd=[SELECT Id,SVMX_PS_Total_Assigned_Resources__c FROM SM_Resource__c WHERE Id IN:setResourceID];
+        for(SM_Resource__c resource:lstResourceUpd){
+            if(mapResourceQtd.containsKey(resource.Id)){resource.SVMX_PS_Total_Assigned_Resources__c=mapResourceQtd.get(resource.Id);}
+		}
+        if(!lstResourceUpd.isEmpty()){
+            try{update lstResourceUpd;}
+            catch(Exception e){SM_Exception_Log.insertExceptionLog('CP&Demand','SM_EventUtilities.VerifyAssignedResource',null,null,null,e.getMessage()+'-'+e.getStackTraceString());}
+		}
+   }
+
+
+    
+This code is a method called VerifyAssignedResource which accepts two input parameters, a list of SVMXC__SVMX_Event__c records and a map of SVMXC__SVMX_Event__c records indexed by their IDs. The method updates a custom field called SVMX_PS_Total_Assigned_Resources__c on the SM_Resource__c object based on the number of appointments associated with a particular resource.
+
+The code first initializes a map of Id and Integer to keep track of the count of appointments associated with each resource. It also initializes a set of Id to keep track of the resources that are being modified.
+
+Then, it loops through each SVMXC__SVMX_Event__c record in the input list. It checks whether the SVMXC__Service_Order__c field is not null and the SVMXC__Type__c field is null. If these conditions are met, it checks whether the input map is not null and not empty. If it is not empty, it checks whether the map contains the current record's ID. If it does, it checks whether the SVMX_PS_Assigned_to_Resource__c field or SVMXC__SM_Appointment_Status__c field has been updated or changed to 'Canceled' or 'Rejected'. If any of these conditions are met, it adds the current record's SVMX_PS_Assigned_to_Resource__c field and the corresponding value from the input map to the set of resource IDs.
+
+If the input map is null or empty, it simply adds the current record's SVMX_PS_Assigned_to_Resource__c field to the set of resource IDs.
+
+After looping through all records in the input list, it initializes the count of appointments associated with each resource to zero. Then, it checks whether the set of resource IDs is not empty. If it is not empty, it runs a SOQL query to aggregate the count of valid appointments associated with each resource. It excludes appointments that have been 'Canceled' or 'Rejected'. The results of the query are stored in a list of AggregateResult.
+
+For each AggregateResult record in the list, it extracts the SVMX_PS_Assigned_to_Resource__c field value and the count of appointments, and adds them to the mapResourceQtd map.
+
+Next, it retrieves a list of SM_Resource__c records based on the set of resource IDs. It loops through each record and checks whether the mapResourceQtd map contains the current record's ID. If it does, it updates the record's SVMX_PS_Total_Assigned_Resources__c field with the corresponding value from the mapResourceQtd map.
+
+Finally, it tries to update the SM_Resource__c records in the list using the update DML statement. If an exception is thrown, it logs an error message using the SM_Exception_Log custom object.
+
+Overall, this code is used to update the SVMX_PS_Total_Assigned_Resources__c field on the SM_Resource__c object based on the count of appointments associated with each resource. It checks whether the appointments have been updated or changed to 'Canceled' or 'Rejected', and excludes them from the count. It also handles exceptions and logs errors to a custom object.
+
+..............................................................................................................
+explian the code as well as the functionality of the code 
+	public static void UpdateEventRelatedSource(List<SVMXC__SVMX_Event__c> lstTrigOld){
+        Set<Id> setDelRelId=new Set<Id>();//List of records that are Event Related (Created by copy)
+		Set<Id> setDelSrcId=new Set<Id>();//List of records that are Event Sources (First event created, not by copy)
+        List<SVMXC__SVMX_Event__c> listOfEventsUpd=new List<SVMXC__SVMX_Event__c>();//List if Events to have the Source reference updated
+        Map<Id,Id> mapOldToNewSourceId=new map<Id,Id>();//Used when replacing the deleted Source for the new one
+        
+        for(SVMXC__SVMX_Event__c objEvtDel:lstTrigOld){
+            if(objEvtDel.SVMXC__Type__c=='Preliminary booking'||objEvtDel.SVMXC__Type__c=='Other Direct/Billable Work'){
+                if(objEvtDel.SM_Source_ServiceMax_Event__c==null){setDelSrcId.add(objEvtDel.Id);}
+                else{setDelRelId.add(objEvtDel.Id);}
+            }
+        }
+         
+        List<SVMXC__SVMX_Event__c> ListOfEvents=[//check records not to be deleted, if any related then one should become source
+        	SELECT Id,SM_Source_ServiceMax_Event__c
+        	FROM SVMXC__SVMX_Event__c
+        	WHERE SVMXC__Type__c IN ('Preliminary booking','Other Direct/Billable Work')
+        	AND Id NOT IN:setDelRelId//exclude the candidates that are to be deleted in this call
+        	AND SM_Source_ServiceMax_Event__c IN:setDelSrcId];//include records related to the source to be deleted in this call
+        
+        for(SVMXC__SVMX_Event__c NewSourceEvent:ListOfEvents){
+            if(!mapOldToNewSourceId.containsKey(NewSourceEvent.SM_Source_ServiceMax_Event__c)){//First record found is the new source
+                mapOldToNewSourceId.put(NewSourceEvent.SM_Source_ServiceMax_Event__c,NewSourceEvent.Id);
+                NewSourceEvent.SM_Source_ServiceMax_Event__c=null;//Source Event should have this field null
+            }
+            else{
+                NewSourceEvent.SM_Source_ServiceMax_Event__c=mapOldToNewSourceId.get(NewSourceEvent.SM_Source_ServiceMax_Event__c);
+            }
+            listOfEventsUpd.add(NewSourceEvent);
+        }
+
+        if(!listOfEventsUpd.isEmpty()){
+            try{update listOfEventsUpd;}
+            catch(Exception e){SM_Exception_Log.insertExceptionLog('CP&Demand','SM_EventUtilities.UpdateEventRelatedSource',null,null,null,e.getMessage()+'-'+e.getStackTraceString());}
+		}
+	}
+
+
+This is an Apex code written for the Salesforce platform. It defines a static method named UpdateEventRelatedSource that takes a list of SVMXC__SVMX_Event__c records as input. This method updates the reference of the source event for certain types of events to ensure data consistency.
+
+Here's a step-by-step explanation of the code:
+
+Three sets and a list are defined to hold the records that need to be processed:
+setDelRelId holds the IDs of the records that are event-related (i.e., created by copying an existing event)
+setDelSrcId holds the IDs of the records that are event sources (i.e., the first event created, not by copying)
+listOfEventsUpd holds the events that need to have their source reference updated
+The input list of events is looped through to determine whether they are preliminary bookings or other direct/billable work. If they are, the event is added to one of the sets, depending on whether it's an event source or related event.
+A SOQL query is executed to retrieve the events that are not in the setDelRelId (i.e., not scheduled for deletion) and are related to the events in setDelSrcId (i.e., have the same source event). This query identifies the events that need to have their source reference updated.
+For each event in the result of the SOQL query, the mapOldToNewSourceId map is updated with the ID of the new source event. The source event's reference field is set to null because the old source event is going to be deleted.
+If the source event has already been updated (i.e., if its ID is already in the mapOldToNewSourceId map), its reference field is set to the new source event ID.
+Each event in the result of the SOQL query is added to the listOfEventsUpd list for update.
+If the listOfEventsUpd list is not empty, the events in the list are updated.
+In summary, this method ensures that the source reference field of certain types of events is updated when the source event is deleted, to maintain data consistency.
+
+
+..............................................................................................................
+
+explain a code and explain the functionailty
+
+ 	public static void AdjustNeededResourcesFromEvent(List<SVMXC__SVMX_Event__c> lstTrigNew, Map<Id,SVMXC__SVMX_Event__c> mapTrigOld,List<SVMXC__SVMX_Event__c> lstTrigOld){
+		Set<Id> setEventId=new Set<Id>();
+        Set<Id> setResourceId=new Set<Id>();
+        Map<Id,SVMXC__SVMX_Event__c> mapEventIdEventRecord=new Map<Id,SVMXC__SVMX_Event__c>();
+        Boolean goForUpsert=true;
+        Boolean isDeleteProcess=lstTrigNew==null;
+        Boolean isInsertProcess=lstTrigNew!=null&&mapTrigOld==null;
+        Boolean isUpdateProcess=lstTrigNew!=null&&mapTrigOld!=null;
+		List<SM_SO_Needed_Resources__c> listOfNeededResource=new List<SM_SO_Needed_Resources__c>();
+		List<SM_SO_Needed_Resources__c> listOfNeededResourceUpsert=new List<SM_SO_Needed_Resources__c>();
+        List<SM_SO_Needed_Resources__c> listOfNeededResourceDelete=new List<SM_SO_Needed_Resources__c>();
+        SM_SO_Needed_Resources__c neededResourceRecordProcess=new SM_SO_Needed_Resources__c();
+         
+		if(lstTrigNew!=null){//populated on insert/update, null for delete
+			for(SVMXC__SVMX_Event__c objEvt:lstTrigNew){//For each Event, get the Resource
+				goForUpsert=true;//logic prepare for consume needed resource or insert new record if all needed resources are already consumed (source to be "Event")
+                if(objEvt.SVMXC__Service_Order__c!=null&&objEvt.SVMXC__Type__c==null){//check only for appointment (work order populated and type null)
+                    if(mapTrigOld!=null){//check if the process is updated
+						if(!mapTrigOld.isEmpty()){
+							if(mapTrigOld.containsKey(objEvt.Id)){//only process if the technician is updated!!!
+								goForUpsert=objEvt.SVMXC__Technician__c!=mapTrigOld.get(objEvt.id).SVMXC__Technician__c;
+							}
+						}
+                    }
+                    if(goForUpsert){//if new record or the technician was updated for an existing record
+                        setEventId.add(objEvt.Id);//store the appointment id to make sure the same is not used by an already existing resource needed record (extra validation)
+                        setResourceId.add(objEvt.SVMX_PS_Assigned_to_Resource__c);
+                        mapEventIdEventRecord.put(objEvt.Id,objEvt);
+                    }
+				}
+			}
+		}
+		else{//lstTrigNew=null -> delete Event process
+            for(SVMXC__SVMX_Event__c objEvt:lstTrigOld){
+                setEventId.add(objEvt.Id);
+                setResourceId.add(objEvt.SVMX_PS_Assigned_to_Resource__c);
+                mapEventIdEventRecord.put(objEvt.Id,objEvt);
+            }
+		}
+        
+        if(!setResourceId.isEmpty()){//mandatory for the process logic, extra verification if the appointment contains the resource id associated
+            if(isInsertProcess){
+ 				listOfNeededResource=[
+                    SELECT Id,SM_ServiceMax_Event__c,SM_Resource__c 
+                    FROM SM_SO_Needed_Resources__c 
+                    WHERE SM_Resource__c IN:setResourceId 
+                    AND SM_ServiceMax_Event__c=null];//inserting new appointment should not have corresponding record on the needed resource object
+                
+                for(SM_SO_Needed_Resources__c neededResourceRecord:listOfNeededResource){
+                    for(SVMXC__SVMX_Event__c eventRecord:mapEventIdEventRecord.values()){
+                        if(neededResourceRecord.SM_Resource__c==eventRecord.SVMX_PS_Assigned_to_Resource__c){
+                            neededResourceRecordProcess=new SM_SO_Needed_Resources__c();
+                            neededResourceRecordProcess.Id=neededResourceRecord.Id;//update record in context
+                            neededResourceRecordProcess.SM_ServiceMax_Event__c=eventRecord.Id;
+                            neededResourceRecordProcess.SM_Technician_Equipment__c=eventRecord.SVMXC__Technician__c;
+                            neededResourceRecordProcess.SM_Service_Team__c=eventRecord.SM_Technician_Team__c;
+                            neededResourceRecordProcess.SM_Service_Order__c=eventRecord.SVMXC__Service_Order__c;
+                            neededResourceRecordProcess.SM_Source__c='Resource with Event';//if this appointment is deleted, the needed resource record is kept
+                            listOfNeededResourceUpsert.add(neededResourceRecordProcess);
+                            mapEventIdEventRecord.remove(eventRecord.id);
+                            break;//get next needed resource record
+                        }
+                    }
+                }
+                
+                if(mapEventIdEventRecord.size()>0){//create new resource for the event ("Event") in case all needed resources are already consumed
+                    for(SVMXC__SVMX_Event__c eventRecord:mapEventIdEventRecord.values()){
+                        neededResourceRecordProcess=new SM_SO_Needed_Resources__c();
+                        neededResourceRecordProcess.SM_ServiceMax_Event__c=eventRecord.Id;
+                        neededResourceRecordProcess.SM_Technician_Equipment__c=eventRecord.SVMXC__Technician__c;
+                        neededResourceRecordProcess.SM_Service_Team__c=eventRecord.SM_Technician_Team__c;
+                        neededResourceRecordProcess.SM_Service_Order__c=eventRecord.SVMXC__Service_Order__c;
+                        neededResourceRecordProcess.SM_Resource__c=eventRecord.SVMX_PS_Assigned_to_Resource__c;
+                        neededResourceRecordProcess.SM_Source__c='Event';//if this appointment is deleted, this needed resource record should also be deleted
+                        listOfNeededResourceUpsert.add(neededResourceRecordProcess);
+                        mapEventIdEventRecord.remove(eventRecord.id);
+                    }
+                }
+			}
+            else{//update or delete
+                if(!setEventId.isEmpty()){
+                    listOfNeededResource=[
+                    SELECT Id,SM_ServiceMax_Event__c,SM_Resource__c,SM_Source__c
+                    FROM SM_SO_Needed_Resources__c 
+                    WHERE SM_Resource__c IN:setResourceId 
+                    AND SM_ServiceMax_Event__c IN:setEventId];//updating appointment, resource id and event id should match
+                    
+                    for(SM_SO_Needed_Resources__c neededResourceRecord:listOfNeededResource){
+                        for(SVMXC__SVMX_Event__c eventRecord:mapEventIdEventRecord.values()){
+                            if(neededResourceRecord.SM_Resource__c==eventRecord.SVMX_PS_Assigned_to_Resource__c
+                              &&neededResourceRecord.SM_ServiceMax_Event__c==eventRecord.Id){
+                                neededResourceRecordProcess=new SM_SO_Needed_Resources__c();
+								if(isDeleteProcess){
+                                    if(neededResourceRecord.SM_Source__c=='Event'){//delete record
+	                                	neededResourceRecordProcess.Id=neededResourceRecord.Id;
+                                        listOfNeededResourceDelete.add(neededResourceRecordProcess);
+                                    }
+                                    else if(neededResourceRecord.SM_Source__c=='Resource with Event'){//reset needed resource
+                                        neededResourceRecordProcess.Id=neededResourceRecord.Id;
+                                        neededResourceRecordProcess.SM_ServiceMax_Event__c=null;
+                                        neededResourceRecordProcess.SM_Technician_Equipment__c=null;
+                                        neededResourceRecordProcess.SM_Service_Team__c=null;
+                                        neededResourceRecordProcess.SM_Source__c='';
+                                        listOfNeededResourceUpsert.add(neededResourceRecordProcess);
+                                    }
+								}
+                                else if(isUpdateProcess){
+	                                neededResourceRecordProcess.Id=neededResourceRecord.Id;//update technician and service team
+	                                neededResourceRecordProcess.SM_Technician_Equipment__c=eventRecord.SVMXC__Technician__c;
+                                	neededResourceRecordProcess.SM_Service_Team__c=eventRecord.SM_Technician_Team__c;
+                                	listOfNeededResourceUpsert.add(neededResourceRecordProcess);
+								}
+                                mapEventIdEventRecord.remove(eventRecord.id);
+                                break;
+                            }
+                        }
+                	}
+                }
+            }
+        }
+        
+		try{
+            SM_Resource__c [] resourcesToBeUpdated=[SELECT Id FROM SM_Resource__c WHERE Id IN:setResourceId FOR UPDATE];//Prevent UNABLE_TO_LOCK_ROW on the Master record
+            
+            if(!listOfNeededResourceUpsert.isEmpty()){
+                upsert listOfNeededResourceUpsert;
+            }
+            if(!listOfNeededResourceDelete.isEmpty()){
+                delete listOfNeededResourceDelete;
+            }
+        }
+        catch(Exception e){SM_Exception_Log.insertExceptionLog('CP&Demand','SM_EventUtilities.AdjustNeededResourcesFromEvent',null,null,null,e.getMessage()+'-'+e.getStackTraceString());}
+	}
+
+SM_Exception_Log.insertExceptionLog(INTERFACE_NAME,'SM_LN_ServiceOrderHepler.upsertProjectSO()',JSON.serialize(dataPayload),FAIL_MSG, FAILURE_CODE,strValidationDetails);
+SVMX_PS_AvailabilityHandler
+
+
+
+SM_EventUtilities
+('Event','SM_EventUtilities.UpdateEventRelatedSource'
+'AdjustResources','SM_EventUtilities.AdjustNeededResourcesFromEvent'
+'Resource','SM_EventUtilities.VerifyAssignedResource'
+'Appointment','SM_EventUtilities.TransformEventIntoAppointment
+'Event','SM_EventUtilities.copyEventToTechnician',
+
+
+SM_TechnicianRecordUpdate ------
+updateTechnicianSkill ....TechnicianSkillinfo
+updateTechnicianCertificate.....TechnicianCertificate
+updateExpertiseDescFromSkillTrigger.....TechnicianSkillDescription
+
+SM_Gantt
+setUserPreference....UserPreference
+updateEntityStartEndDate....GanttUpdateStartdateandEnddate
+
+SM_ResourceConsumedCount 1 ex schedule
+
+SM_ResourceTriggerHandler
+updateEventServiceTask .....EventServiceTask
+AdjustNeededResourcesFromResource....Insert&DeleteNeededResource
+
+SM_TechnicianTimeGenerateReport -----DONE
+SM_TechnicianTimeGenerateReport......TechnicianTimeReport
+'TechnicianTimeReport','SM_TechnicianTimeGenerateReport.GenerateAndAttachReports'
+
+sm_tma_materialListTemplate
+createMaterialList...MaterialList
+createMaterialList....MaterialListTemplate
+
+SVMX_PS_AvailabilityHandler
+'AvailabilityWeeksOfTerritories','SVMX_PS_AvailabilityHandler.manageWeeks
+'AvailabilityDay','SVMX_PS_AvailabilityHandler.manageDays()'
+('ServiceOrderCanceled','SVMX_PS_AvailabilityHandler.canceledWorkOrder()
+UpdateDemandType','SVMX_PS_AvailabilityHandler.assignmentManager()
+('Technicianactive','SVMX_PS_AvailabilityHandler.TechnicianPeriodCreation()
+
+
+SM_ExtendTechAvailabilityPeriod
+'ExtendEndDateOfAvailabilityPeriod','SM_ExtendTechnicianAvailabilityPeriod.execute()'
+
+SM_ResourceConsumedCount
+
+SM_FixAvailability
+'RecalculateAvailability','SM_FixAvailability.execute()
+
+SM_FixAvailabilityPeriods
+'Create&UpdateAvailabilityReference','SM_FixAvailabilityPeriods.execute()',
+
+explain the code and functionality 
+catch(Exception e) {
+
+		String strValidationDetails=e.getMessage()+'-'+e.getStackTraceString();
+		SM_Exception_Log.insertExceptionLog('CP&Demand','SVMX_PS_AvailabilityHandler.canceledWorkOrder()',null,null,null,strValidationDetails);
+	}
+}
+
+ String strValidationDetails=e.getMessage()+'-'+e.getStackTraceString();
